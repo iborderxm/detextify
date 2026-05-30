@@ -149,17 +149,21 @@ class ReplicateSDInpainter(StableDiffusionInpainter):
 class LocalSDInpainter(StableDiffusionInpainter):
   """Uses a local Stable Diffusion model from HuggingFace for in-painting."""
 
-  def __init__(self, pipe: StableDiffusionInpaintPipeline = None):
-    if pipe is None:
-      if not torch.cuda.is_available():
-        raise Exception("You need a GPU + CUDA to run this model locally.")
-
-      self.pipe = StableDiffusionInpaintPipeline.from_pretrained(
-          "stabilityai/stable-diffusion-2-inpainting",
-          revision="fp16",
-          torch_dtype=torch.float16).to("cuda")
-    else:
+  def __init__(self, model_path: str = None, pipe: StableDiffusionInpaintPipeline = None):
+    if pipe is not None:
       self.pipe = pipe
+      return
+
+    if model_path is None:
+      model_path = "stabilityai/stable-diffusion-2-inpainting"
+
+    if not torch.cuda.is_available():
+      raise Exception("You need a GPU + CUDA to run this model locally.")
+
+    self.pipe = StableDiffusionInpaintPipeline.from_pretrained(
+        model_path,
+        revision="fp16",
+        torch_dtype=torch.float16).to("cuda")
 
   def call_model(self, prompt: str, image: Image, mask: Image) -> Image:
     return self.pipe(prompt=prompt, image=image, mask_image=mask).images[0]

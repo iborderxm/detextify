@@ -1,0 +1,14 @@
+urllib3==1.26.20
+numpy==1.26.4
+absl-py==1.4.0
+azure-cognitiveservices-vision-computervision==0.9.1
+openai==0.25.0
+requests==2.34.2
+replicate==0.4.0
+pillow==9.5.0
+torch==1.13.1
+diffusers==0.10.2
+transformers==4.30.0
+accelerate==0.15.0
+pytesseract==0.3.13
+pytest = "^7.2.0"
