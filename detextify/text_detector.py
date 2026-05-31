@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from typing import Sequence
 from PIL import Image
 
-import pytesseract
 import time
 
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
 from msrest.authentication import CognitiveServicesCredentials
+from paddleocr import PaddleOCR
 
 
 @dataclass
@@ -79,20 +79,36 @@ class AzureTextDetector(TextDetector):
     return text_boxes
 
 
-class TesseractTextDetector(TextDetector):
-  """Uses the `tesseract` OCR library from Google to do text detection."""
+class PaddleOCRTextDetector(TextDetector):
+  """Uses the `PaddleOCR` library from Baidu to do text detection."""
 
-  def __init__(self, tesseract_path: str):
+  def __init__(self, lang: str = 'ch', use_angle_cls: bool = True, show_log: bool = False):
     """
     Args:
-      tesseract_path: The path where the `tesseract` library is installed, e.g. "/usr/bin/tesseract".
+      lang: Language code, e.g. 'ch' (Chinese), 'en' (English).
+      use_angle_cls: Whether to use angle classification.
+      show_log: Whether to show logs.
     """
-    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+    self.ocr = PaddleOCR(lang=lang, use_angle_cls=use_angle_cls, show_log=show_log)
 
   def detect_text(self, image_filename: str) -> Sequence[TextBox]:
-    image = Image.open(image_filename)
-    data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
-    boxes = [TextBox(l, top, w, h, text)
-             for l, top, w, h, text in zip(data["left"], data["top"], data["width"], data["height"], data["text"])
-             if text.strip()]
-    return boxes
+    result = self.ocr.ocr(image_filename, cls=True)
+    text_boxes = []
+    
+    if result[0]:  # Check if any text was detected
+      for line in result[0]:
+        coords = line[0]  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+        text = line[1][0]
+        
+        # Calculate bounding box from polygon coordinates
+        xs = [p[0] for p in coords]
+        ys = [p[1] for p in coords]
+        tl_x = min(xs)
+        tl_y = min(ys)
+        h = max(xs) - tl_x
+        w = max(ys) - tl_y
+        
+        if h >= 0 and w >= 0 and text.strip():
+          text_boxes.append(TextBox(int(tl_y), int(tl_x), int(w), int(h), text))
+    
+    return text_boxes
