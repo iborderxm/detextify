@@ -95,7 +95,7 @@ class PaddleOCRTextDetector(TextDetector):
     self.ocr = PaddleOCR(lang=lang, use_textline_orientation=use_textline_orientation)
 
   def detect_text(self, image_filename: str) -> Sequence[TextBox]:
-    result = self.ocr.ocr(image_filename, cls=True)
+    result = self.ocr.ocr(image_filename)
     text_boxes = []
     
     if result[0]:  # Check if any text was detected
