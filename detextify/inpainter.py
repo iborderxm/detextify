@@ -17,8 +17,7 @@ from detextify.text_detector import TextBox
 
 class Inpainter:
   """Interface for in-painting models."""
-  # TODO(julia): Run some experiments to determine the best prompt.
-  DEFAULT_PROMPT = "plain background"
+  DEFAULT_PROMPT = "remove the text and keep the background natural"
 
   def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
     pass
@@ -146,25 +145,30 @@ class ReplicateSDInpainter(StableDiffusionInpainter):
     return out_image
 
 
-class LocalSDInpainter(StableDiffusionInpainter):
-  """Uses a local Stable Diffusion model from HuggingFace for in-painting."""
+class LocalSDInpainter(Inpainter):
+  """Uses LongCat-Image-Edit model for instruction-based image editing."""
 
-  def __init__(self, model_path: str = None, pipe: StableDiffusionInpaintPipeline = None):
+  def __init__(self, model_path: str = None, pipe=None):
     if pipe is not None:
       self.pipe = pipe
       return
 
     if model_path is None:
-      model_path = "stabilityai/stable-diffusion-2-inpainting"
+      model_path = "meituan-longcat/LongCat-Image-Edit"
 
     if not torch.cuda.is_available():
       raise Exception("You need a GPU + CUDA to run this model locally.")
 
-    self.pipe = StableDiffusionInpaintPipeline.from_pretrained(
+    from diffusers import LongCatImageEditPipeline
+    self.pipe = LongCatImageEditPipeline.from_pretrained(
         model_path,
-        revision="fp16",
         torch_dtype=torch.float16).to("cuda")
 
   def call_model(self, prompt: str, image: Image, mask: Image) -> Image:
-    return self.pipe(prompt=prompt, image=image, mask_image=mask).images[0]
+    return self.pipe(image=image, prompt=prompt).images[0]
+
+  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
+    image = Image.open(in_image_path)
+    out_image = self.call_model(prompt=prompt, image=image, mask=None)
+    out_image.save(out_image_path)
 
