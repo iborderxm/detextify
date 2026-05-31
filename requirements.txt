@@ -11,5 +11,5 @@ torch==1.13.1
 diffusers==0.10.2
 transformers==4.30.0
 accelerate==0.15.0
-paddlepaddle==2.7.0
+paddlepaddle==3.0.0
 paddleocr==2.7.0.3
