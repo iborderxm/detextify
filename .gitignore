@@ -3,3 +3,6 @@ poetry.lock
 detextify/__pycache__
 detextify/poetry.lock
 detextify_env/
+env/
+venv/
+mod/*/

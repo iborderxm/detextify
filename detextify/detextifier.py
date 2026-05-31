@@ -15,6 +15,11 @@ class Detextifier:
             print(f"\tCalling text detector...")
             text_boxes = self.text_detector.detect_text(to_inpaint_path)
             print(f"\tDetected {len(text_boxes)} text boxes.")
+            
+            for idx, box in enumerate(text_boxes):
+                print(f"\t  Text Box {idx + 1}:")
+                print(f"\t    Text: '{box.text}'")
+                print(f"\t    Position: x={box.x}, y={box.y}, w={box.w}, h={box.h}")
 
             if not text_boxes:
                 break
