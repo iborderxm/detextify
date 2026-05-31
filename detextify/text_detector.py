@@ -1,4 +1,9 @@
 """Interfaces for text detection."""
+import os
+os.environ['FLAGS_use_mkldnn'] = 'False'
+os.environ['FLAGS_use_onednn'] = 'False'
+os.environ['FLAGS_use_mkldnn_bf16'] = 'False'
+
 from absl import logging
 from dataclasses import dataclass
 from typing import Sequence
