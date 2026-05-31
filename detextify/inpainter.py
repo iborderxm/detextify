@@ -146,7 +146,7 @@ class ReplicateSDInpainter(StableDiffusionInpainter):
 
 
 class LocalSDInpainter(Inpainter):
-  """Uses LongCat-Image-Edit model for instruction-based image editing."""
+  """Uses meituan-longcat/LongCat-Image-Edit-Turbo model for instruction-based image editing."""
 
   def __init__(self, model_path: str = None, pipe=None):
     if pipe is not None:
@@ -154,7 +154,7 @@ class LocalSDInpainter(Inpainter):
       return
 
     if model_path is None:
-      model_path = "meituan-longcat/LongCat-Image-Edit"
+      model_path = "meituan-longcat/LongCat-Image-Edit-Turbo"
 
     if not torch.cuda.is_available():
       raise Exception("You need a GPU + CUDA to run this model locally.")
@@ -162,13 +162,19 @@ class LocalSDInpainter(Inpainter):
     from diffusers import LongCatImageEditPipeline
     self.pipe = LongCatImageEditPipeline.from_pretrained(
         model_path,
-        torch_dtype=torch.float16).to("cuda")
+        torch_dtype=torch.bfloat16)
+    self.pipe.enable_model_cpu_offload()
 
-  def call_model(self, prompt: str, image: Image, mask: Image) -> Image:
-    return self.pipe(image=image, prompt=prompt).images[0]
+  def call_model(self, prompt: str, image: Image) -> Image:
+    return self.pipe(
+        image=image,
+        prompt=prompt,
+        guidance_scale=1,
+        num_inference_steps=8
+    ).images[0]
 
   def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
     image = Image.open(in_image_path)
-    out_image = self.call_model(prompt=prompt, image=image, mask=None)
+    out_image = self.call_model(prompt=prompt, image=image)
     out_image.save(out_image_path)
 
