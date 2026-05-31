@@ -32,45 +32,87 @@ If we get this right, we will unlock slews of new applications for generative sy
 
 `Detextify` runs text detection on your image, masks the text boxes, and in-paints the masked regions
 until your image is text-free. `Detextify` can be run entirely on your local machine (using
-[Tesseract](https://github.com/tesseract-ocr/tesseract) for text detection and
-[Stable Diffusion](https://huggingface.co/stabilityai/stable-diffusion-2-inpainting) for in-painting), or can call existing APIs
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) for text detection and
+[LongCat-Image-Edit-Turbo](https://huggingface.co/meituan-longcat/LongCat-Image-Edit-Turbo) for in-painting), or can call existing APIs
 ([Azure](https://azure.microsoft.com/en-us/products/cognitive-services/computer-vision/) for text detection and
 [OpenAI](https://openai.com/dall-e-2/) or [Replicate](https://replicate.com/) for in-painting).
 
 ## Installation
-```commandline
-pip install detextify
+
+### 1. 创建虚拟环境
+
+**Windows (PowerShell):**
+```powershell
+python -m venv detextify_env
+.\detextify_env\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
+```bash
+python -m venv detextify_env
+source detextify_env/bin/activate
+```
+
+### 2. 升级基础工具
+
+```bash
+pip install --upgrade setuptools pip wheel
+```
+
+### 3. 安装依赖包
+
+使用清华镜像源加速安装：
+
+```bash
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
+```
+
+### 4. 安装最新版 diffusers
+
+```bash
+pip install -U git+https://github.com/huggingface/diffusers
 ```
 
 Additionally:
-- To run text detection locally (as opposed to using the Azure API), you need to [install Tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html).
+- To run text detection locally (as opposed to using the Azure API), PaddleOCR will be automatically installed.
 - To run in-painting locally (as opposed to using the OpenAI or Replicate APIs), you need a GPU with CUDA and cuDNN installed.
 
 ## Usage
-See [this Colab notebook](https://colab.research.google.com/drive/1a8BJ55yT88IKDyzFuk3jqdATZ_jZ2cwy?usp=sharing) for how to use the library, or follow the instructions below.
 
 You can remove unwanted text from your image in just a few lines 💪:
 ```python
-from detextify.text_detector import TesseractTextDetector
+from detextify.text_detector import PaddleOCRTextDetector
 from detextify.inpainter import LocalSDInpainter
 from detextify.detextifier import Detextifier
 
-text_detector = TesseractTextDetector("/path/to/tesseract/installation")
-detextifier = Detextifier(text_detector, LocalSDInpainter())
-detextifier.detextify("/my/input/image/path.png", "/my/output/image/path.png")
+text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, show_log=False)
+inpainter = LocalSDInpainter()  # Uses meituan-longcat/LongCat-Image-Edit-Turbo by default
+detextifier = Detextifier(text_detector, inpainter)
+detextifier.detextify("./data/1.jpg", "./data/2.jpg")
 ```
 
-and 💣💥, just like that, your image is cleared of any bizarre text artifacts.
+Or use a local model (place model files in `./mod/` directory):
+```python
+from detextify.text_detector import PaddleOCRTextDetector
+from detextify.inpainter import LocalSDInpainter
+from detextify.detextifier import Detextifier
+
+text_detector = PaddleOCRTextDetector(lang='ch')
+inpainter = LocalSDInpainter(model_path="./mod")  # Use local model
+detextifier = Detextifier(text_detector, inpainter)
+detextifier.detextify("/my/input/image/path.png", "/my/output/image/path.png")
+```
 
 Or if you want to clean up a directory of PNG images, just wrap it in a for-loop:
 ```python
 import glob
-from detextify.text_detector import TesseractTextDetector
+from detextify.text_detector import PaddleOCRTextDetector
 from detextify.inpainter import LocalSDInpainter
 from detextify.detextifier import Detextifier
 
-text_detector = TesseractTextDetector("/path/to/tesseract/installation")
-detextifier = Detextifier(text_detector, LocalSDInpainter())
+text_detector = PaddleOCRTextDetector(lang='ch')
+inpainter = LocalSDInpainter()
+detextifier = Detextifier(text_detector, inpainter)
 for img_file in glob.glob("/path/to/dir/*.png"):
     detextifier.detextify(img_file, img_file.replace(".png", "_detextified.png"))
 ```
@@ -78,16 +120,14 @@ for img_file in glob.glob("/path/to/dir/*.png"):
 We provide multiple implementations for text detection and in-painting (both local and API-based), and you are also free to add your own.
 
 ### Text Detectors
-1. `TesseractTextDetector` (based on [Tesseract](https://github.com/tesseract-ocr/tesseract)) runs locally.
-Follow [this guide](https://tesseract-ocr.github.io/tessdoc/Installation.html) to install the `tesseract` library locally. On Ubuntu:
+
+1. `PaddleOCRTextDetector` (based on [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)) runs locally and supports multiple languages.
+```python
+text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, show_log=False)
 ```
-sudo apt install tesseract-ocr
-sudo apt install libtesseract-dev
-```
-To find the path where it was installed (and pass it to the `TesseractTextDetector` constructor):
-```
-whereis tesseract
-```
+   - `lang`: Language code, e.g. 'ch' (Chinese), 'en' (English), etc.
+   - `use_textline_orientation`: Whether to use text line orientation.
+   - `show_log`: Whether to show PaddleOCR logs.
 
 2. `AzureTextDetector` calls a computer vision API from Microsoft Azure. You will first need to create a
 [Computer Vision resource](https://portal.azure.com/#create/Microsoft.CognitiveServicesComputerVision) via the Azure
@@ -97,19 +137,36 @@ AZURE_CV_ENDPOINT = "https://your-endpoint.cognitiveservices.azure.com"
 AZURE_CV_KEY = "your-azure-key"
 text_detector = AzureTextDetector(AZURE_CV_ENDPOINT, AZURE_CV_KEY)
 ```
-Our evaluation shows that the two text detectors produce comparable results.
 
 ### In-painters
+
 1. `LocalSDInpainter` (implemented via Huggingface's `diffusers` library) runs locally and requires a GPU. Defaults to
-[Stable Diffusion v2 for in-painting](https://huggingface.co/stabilityai/stable-diffusion-2-inpainting).
+[LongCat-Image-Edit-Turbo](https://huggingface.co/meituan-longcat/LongCat-Image-Edit-Turbo) for fast and high-quality in-painting.
+```python
+# Use default model from Hugging Face
+local_inpainter = LocalSDInpainter()
+
+# Or use a local model
+local_inpainter = LocalSDInpainter(model_path="./mod")
+```
+
 2. `ReplicateSDInpainter` calls the [Replicate](https://replicate.com) API. Defaults to Stable Diffusion v2 for
 in-painting (and requires an API key).
+
 3. `DalleInpainter` calls the [DALL·E 2](https://labs.openai.com) API from OpenAI (and requires an API key).
+
 ```python
 # You only need to instantiate one of the following:
 local_inpainter = LocalSDInpainter()
 replicate_inpainter = ReplicateSDInpainter("your-replicate-key")
 dalle_inpainter = DalleInpainter("your-openai-key")
+```
+
+## Verification
+
+Run the following command to verify your installation:
+```bash
+python -c "import diffusers; print(diffusers.__version__)"
 ```
 
 ## Contributing
@@ -135,6 +192,13 @@ Please run the unit tests to make sure that your changes are not breaking the co
 ```commandline
 poetry run pytest
 ```
+
+## Notes
+
+1. 确保在安装依赖前已激活虚拟环境
+2. 如果在国内网络环境，建议使用清华镜像源加速下载
+3. Windows 用户如遇到执行策略限制，可运行：`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+4. diffusers 库需要从 GitHub 安装最新版本以获取最新功能
 
 ## Authors
 This project was authored by [Mihail Eric](https://twitter.com/mihail_eric) and [Julia Turc](https://twitter.com/juliarturc). If you are building in the generative AI space, we want to hear from you!
