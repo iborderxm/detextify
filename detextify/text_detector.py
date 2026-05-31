@@ -82,14 +82,17 @@ class AzureTextDetector(TextDetector):
 class PaddleOCRTextDetector(TextDetector):
   """Uses the `PaddleOCR` library from Baidu to do text detection."""
 
-  def __init__(self, lang: str = 'ch', use_angle_cls: bool = True, show_log: bool = False):
+  def __init__(self, lang: str = 'ch', use_textline_orientation: bool = True, show_log: bool = False):
     """
     Args:
       lang: Language code, e.g. 'ch' (Chinese), 'en' (English).
-      use_angle_cls: Whether to use angle classification.
-      show_log: Whether to show logs.
+      use_textline_orientation: Whether to use text line orientation (replaces use_angle_cls in newer PaddleOCR versions).
+      show_log: Whether to show logs (now controlled via logging module).
     """
-    self.ocr = PaddleOCR(lang=lang, use_angle_cls=use_angle_cls, show_log=show_log)
+    import logging
+    if not show_log:
+      logging.getLogger('ppocr').setLevel(logging.WARNING)
+    self.ocr = PaddleOCR(lang=lang, use_textline_orientation=use_textline_orientation)
 
   def detect_text(self, image_filename: str) -> Sequence[TextBox]:
     result = self.ocr.ocr(image_filename, cls=True)

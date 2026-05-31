@@ -5,7 +5,7 @@ import os
 
 print("Using PaddleOCR for text detection")
 
-text_detector = PaddleOCRTextDetector(lang='ch', use_angle_cls=True, show_log=False)
+text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, show_log=False)
 
 model_path = "./mod"
 if not os.path.exists(os.path.join(model_path, "model_index.json")):
