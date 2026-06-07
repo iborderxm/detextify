@@ -83,7 +83,6 @@ class Detextifier:
             print(f"\tAdding product info to image...")
             from PIL import Image, ImageDraw, ImageFont
             image = Image.open(out_image_path)
-            draw = ImageDraw.Draw(image)
             
             # 使用默认字体，设置字体大小
             try:
@@ -94,6 +93,7 @@ class Detextifier:
             # 在图片底部添加商品信息
             text = product_info_result
             # 使用 textbbox 替代已废弃的 textsize（Pillow 10+）
+            draw = ImageDraw.Draw(image)
             bbox = draw.textbbox((0, 0), text, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
@@ -103,13 +103,17 @@ class Detextifier:
             x = (image.width - text_width) // 2
             y = image.height - text_height - padding
             
-            # 添加半透明背景
+            # 限制所有坐标在图片边界内，确保不改变图片尺寸
             bg_height = text_height + 10
-            bg_y = y - 5
-            draw.rectangle([(0, bg_y), (image.width, bg_y + bg_height)], fill=(0, 0, 0, 128))
+            bg_y = max(0, y - 5)
+            bg_bottom = min(image.height, bg_y + bg_height)
+            text_y = max(0, min(y, image.height - text_height))
+            
+            # 添加半透明背景
+            draw.rectangle([(0, bg_y), (image.width, bg_bottom)], fill=(0, 0, 0, 128))
             
             # 添加文本
-            draw.text((x, y), text, font=font, fill=(255, 255, 255))
+            draw.text((x, text_y), text, font=font, fill=(255, 255, 255))
             
             image.save(out_image_path)
             print(f"\tProduct info added to image.")
