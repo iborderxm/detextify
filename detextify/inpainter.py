@@ -16,10 +16,12 @@ from detextify.text_detector import TextBox
 
 class Inpainter:
   """Interface for in-painting models."""
-  DEFAULT_PROMPT = "remove the text and keep the background natural"
-  DEFAULT_PROMPT_OTHER = "Add the product information {} to the blank area below the image"
+  DEFAULT_PROMPT = "Remove all text in the masked area, fill it with clean white background that seamlessly blends with the surrounding area. Keep the product unchanged and make it stand out clearly against the white background. Maintain high image quality and natural appearance."
+  DEFAULT_PROMPT_OTHER = "Add the following product information to the image: {}. Place it in a suitable position. Use a professional, clear font with appropriate size and dark color (black or dark gray) that is easy to read against the white background. Ensure the text is accurate, undistorted, well-positioned, doesn't overlap with the product or important elements, and maintains a clean, professional e-commerce style that harmonizes with the overall image."
+  DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, bad anatomy, extra limbs, missing limbs, text, typo, error"
+  DEFAULT_NEGATIVE_PROMPT_OTHER = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, wrong text, misspelled, garbled text, overlapping text, illegible text"
 
-  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
+  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str, negative_prompt: str = None):
     pass
 
 
@@ -42,13 +44,18 @@ class DalleInpainter(Inpainter):
     mask.save(bytes_arr, format="PNG")
     return bytes_arr.getvalue()
 
-  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
+  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str, negative_prompt: str = None):
     image = Image.open(in_image_path)  # open the image to inspect its size
+
+    # DALL-E API may not support negative prompt directly, we'll add it to the prompt if provided
+    full_prompt = prompt
+    if negative_prompt:
+        full_prompt = f"{prompt}. Do NOT include: {negative_prompt}"
 
     response = openai.Image.create_edit(
         image=open(in_image_path, "rb"),
         mask=self._make_mask(text_boxes, image.height, image.width),
-        prompt=prompt,
+        prompt=full_prompt,
         n=1,
         size=f"{image.height}x{image.width}"
     )
@@ -61,7 +68,7 @@ class DalleInpainter(Inpainter):
 class StableDiffusionInpainter(Inpainter):
   """Abstract class for Stable Diffusion inpainters; suppoerts any input image size. Children must implement `call_model`."""
 
-  def call_model(self, prompt: str, image: Image, mask: Image) -> Image:
+  def call_model(self, prompt: str, image: Image, mask: Image, negative_prompt: str = None) -> Image:
     pass  # To be implemented by children.
 
   def _tile_has_text_box(self, crop_x: int, crop_y: int, crop_size: int, text_boxes: Sequence[TextBox]):
@@ -87,7 +94,7 @@ class StableDiffusionInpainter(Inpainter):
                           fill=mask_color)
     return mask
 
-  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
+  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str, negative_prompt: str = None):
     image = Image.open(in_image_path)
     mask_image = self._make_mask(text_boxes, image.height, image.width, image.mode)
 
@@ -95,7 +102,7 @@ class StableDiffusionInpainter(Inpainter):
     SD_SIZE = 512
 
     if image.height == SD_SIZE and image.width == SD_SIZE:
-      out_image = self.call_model(prompt=prompt, image=image, mask=mask_image)
+      out_image = self.call_model(prompt=prompt, image=image, mask=mask_image, negative_prompt=negative_prompt)
     else:
       # Break the image into 512 x 512 tiles. In-paint the tiles that contain text boxes.
       out_image = image.copy()
@@ -112,7 +119,7 @@ class StableDiffusionInpainter(Inpainter):
 
             in_tile = self._pad_to_size(image.crop(crop_box), SD_SIZE)
             in_mask = self._pad_to_size(mask_image.crop(crop_box), SD_SIZE)
-            out_tile = self.call_model(prompt=prompt, image=in_tile, mask=in_mask)
+            out_tile = self.call_model(prompt=prompt, image=in_tile, mask=in_mask, negative_prompt=negative_prompt)
             out_tile = out_tile.crop((0, 0, crop_x1 - x, crop_y1 - y))
             out_mask = mask_binary.crop(crop_box)
             out_image.paste(out_tile, (x, y), out_mask)
@@ -128,18 +135,24 @@ class ReplicateSDInpainter(StableDiffusionInpainter):
     replicate_client = replicate.Client(api_token=replicate_token)
     self.model = replicate_client.models.get(model_name).versions.get(model_version)
 
-  def call_model(self, prompt: str, image: Image, mask: Image) -> Image:
+  def call_model(self, prompt: str, image: Image, mask: Image, negative_prompt: str = None) -> Image:
     # Replicate expects a file object as an input.
     img_temp_file = tempfile.NamedTemporaryFile(suffix=".jpeg")
     image.save(img_temp_file)
     mask_temp_file = tempfile.NamedTemporaryFile(suffix=".jpeg")
     mask.save(mask_temp_file)
 
-    url = self.model.predict(prompt=prompt,
-                             prompt_strength=1.0,
-                             image=open(img_temp_file.name, "rb"),
-                             mask=open(mask_temp_file.name, "rb"),
-                             num_outputs=1)[0]
+    predict_kwargs = {
+        "prompt": prompt,
+        "prompt_strength": 1.0,
+        "image": open(img_temp_file.name, "rb"),
+        "mask": open(mask_temp_file.name, "rb"),
+        "num_outputs": 1
+    }
+    if negative_prompt:
+        predict_kwargs["negative_prompt"] = negative_prompt
+
+    url = self.model.predict(**predict_kwargs)[0]
     out_image_data = requests.get(url).content
     out_image = Image.open(io.BytesIO(out_image_data))
     return out_image
@@ -165,16 +178,20 @@ class LocalSDInpainter(Inpainter):
         torch_dtype=torch.bfloat16)
     self.pipe.enable_model_cpu_offload()
 
-  def call_model(self, prompt: str, image: Image) -> Image:
-    return self.pipe(
-        image=image,
-        prompt=prompt,
-        guidance_scale=1,
-        num_inference_steps=8
-    ).images[0]
+  def call_model(self, prompt: str, image: Image, negative_prompt: str = None) -> Image:
+    pipe_kwargs = {
+        "image": image,
+        "prompt": prompt,
+        "guidance_scale": 1,
+        "num_inference_steps": 8
+    }
+    if negative_prompt:
+        pipe_kwargs["negative_prompt"] = negative_prompt
+    
+    return self.pipe(**pipe_kwargs).images[0]
 
-  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
+  def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str, negative_prompt: str = None):
     image = Image.open(in_image_path)
-    out_image = self.call_model(prompt=prompt, image=image)
+    out_image = self.call_model(prompt=prompt, image=image, negative_prompt=negative_prompt)
     out_image.save(out_image_path)
 

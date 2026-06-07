@@ -26,8 +26,9 @@ class Detextifier:
         return "\n".join(lines)
 
     def detextify(self, in_image_path: str, out_image_path: str, 
-                  prompt: str = Inpainter.DEFAULT_PROMPT, 
-                  max_retries: int = 5) -> Tuple[bool, str]:
+                prompt: str = Inpainter.DEFAULT_PROMPT, 
+                negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
+                max_retries: int = 5) -> Tuple[bool, str]:
         """
         Remove text from image and optionally add product information.
         
@@ -76,13 +77,16 @@ class Detextifier:
                         self.product_info_result = None
 
                 # Prepare prompt with product info
+                product_info_prompt = None
+                product_info_negative_prompt = None
                 if self.product_info_result:
                     # 图片中文本全部移除后，后面的迭代中，只添加商品信息到图片，不移除文本
                     product_info_prompt = Inpainter.DEFAULT_PROMPT_OTHER.format(self.product_info_result)
+                    product_info_negative_prompt = Inpainter.DEFAULT_NEGATIVE_PROMPT_OTHER
             
                 print(f"\tCalling in-painting model with prompt: {prompt}")
                 try:
-                    self.inpainter.inpaint(to_inpaint_path, text_boxes, prompt, out_image_path)
+                    self.inpainter.inpaint(to_inpaint_path, text_boxes, prompt, out_image_path, negative_prompt)
                 except Exception as e:
                     print(f"\tInpainting failed: {e}")
                     if i < max_retries - 1:
@@ -100,9 +104,7 @@ class Detextifier:
             if self.product_info_result and product_info_prompt:
                 print("\tAdding product info to image using LongCat model...")
                 try:
-                    out_image = self.inpainter.inpaint(to_inpaint_path, None, product_info_prompt, out_image_path)
-                    if out_image:
-                        out_image.save(out_image_path)
+                    self.inpainter.inpaint(to_inpaint_path, None, product_info_prompt, out_image_path, product_info_negative_prompt)
                     print("\tProduct info added to image.")
                 except Exception as e:
                     print(f"\tFailed to add product info: {e}")
