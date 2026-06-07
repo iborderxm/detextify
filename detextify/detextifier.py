@@ -33,6 +33,8 @@ class Detextifier:
     def detextify(self, in_image_path: str, out_image_path: str, prompt=Inpainter.DEFAULT_PROMPT, max_retries=5):
         global ocr_extraction_result, product_info_result
         to_inpaint_path = in_image_path
+
+        product_info_prompt = None
         for i in range(max_retries):
             print(f"Iteration {i} of {max_retries} for image {in_image_path}:")
 
@@ -68,13 +70,45 @@ class Detextifier:
 
             # Prepare prompt with product info
             if product_info_result:
-                current_prompt = f"{prompt}, {Inpainter.DEFAULT_PROMPT_OTHER.format(product_info_result)}"
-            else:
-                current_prompt = prompt
+                product_info_prompt = f"{Inpainter.DEFAULT_PROMPT_OTHER.format(product_info_result)}"
             
-            print(f"\tCalling in-painting model with prompt: {current_prompt}")
-            self.inpainter.inpaint(to_inpaint_path, text_boxes, current_prompt, out_image_path)
+            print(f"\tCalling in-painting model with prompt: {prompt}")
+            self.inpainter.inpaint(to_inpaint_path, text_boxes, prompt, out_image_path)
             import os
             assert os.path.exists(out_image_path)
             to_inpaint_path = out_image_path
+
+        # 图片中文本全部移除后，添加商品信息到图片
+        if product_info_result:
+            print(f"\tAdding product info to image...")
+            from PIL import Image, ImageDraw, ImageFont
+            image = Image.open(out_image_path)
+            draw = ImageDraw.Draw(image)
+            
+            # 使用默认字体，设置字体大小
+            try:
+                font = ImageFont.truetype("arial.ttf", 24)
+            except:
+                font = ImageFont.load_default()
+            
+            # 在图片底部添加商品信息
+            text = product_info_result
+            text_width, text_height = draw.textsize(text, font=font)
+            
+            # 计算位置（底部居中，留出边距）
+            padding = 20
+            x = (image.width - text_width) // 2
+            y = image.height - text_height - padding
+            
+            # 添加半透明背景
+            bg_height = text_height + 10
+            bg_y = y - 5
+            draw.rectangle([(0, bg_y), (image.width, bg_y + bg_height)], fill=(0, 0, 0, 128))
+            
+            # 添加文本
+            draw.text((x, y), text, font=font, fill=(255, 255, 255))
+            
+            image.save(out_image_path)
+            print(f"\tProduct info added to image.")
+        
 
