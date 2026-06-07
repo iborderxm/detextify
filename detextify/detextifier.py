@@ -93,7 +93,10 @@ class Detextifier:
             
             # 在图片底部添加商品信息
             text = product_info_result
-            text_width, text_height = draw.textsize(text, font=font)
+            # 使用 textbbox 替代已废弃的 textsize（Pillow 10+）
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
             
             # 计算位置（底部居中，留出边距）
             padding = 20
