@@ -195,3 +195,12 @@ class LocalSDInpainter(Inpainter):
     out_image = self.call_model(prompt=prompt, image=image, negative_prompt=negative_prompt)
     out_image.save(out_image_path)
 
+  def release_memory(self):
+    """释放LongCat-Image-Edit-Turbo模型占用的显存"""
+    if hasattr(self, 'pipe') and self.pipe is not None:
+      self.pipe = self.pipe.to('cpu')
+      del self.pipe
+      self.pipe = None
+      torch.cuda.empty_cache()
+      print("\tLongCat model memory released.")
+

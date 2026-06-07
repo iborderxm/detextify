@@ -4,14 +4,17 @@ from typing import Optional, Tuple
 from detextify.inpainter import Inpainter
 from detextify.text_detector import TextDetector
 from detextify.product_info_extractor import ProductInfoExtractor
+from detextify.upscaler import Upscaler
 
 
 class Detextifier:
     def __init__(self, text_detector: TextDetector, inpainter: Inpainter, 
-                 product_info_extractor: Optional[ProductInfoExtractor] = None):
+                 product_info_extractor: Optional[ProductInfoExtractor] = None,
+                 upscaler: Optional[Upscaler] = None):
         self.text_detector = text_detector
         self.inpainter = inpainter
         self.product_info_extractor = product_info_extractor
+        self.upscaler = upscaler
         # 使用实例变量替代全局变量
         self.ocr_extraction_result: Optional[str] = None
         self.product_info_result: Optional[str] = None
@@ -28,7 +31,9 @@ class Detextifier:
     def detextify(self, in_image_path: str, out_image_path: str, 
                 prompt: str = Inpainter.DEFAULT_PROMPT, 
                 negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
-                max_retries: int = 5) -> Tuple[bool, str]:
+                max_retries: int = 5,
+                enable_upscale: bool = True,
+                upscale_factor: int = 4) -> Tuple[bool, str]:
         """
         Remove text from image and optionally add product information.
         
@@ -36,7 +41,10 @@ class Detextifier:
             in_image_path: Input image path
             out_image_path: Output image path
             prompt: Inpainting prompt
+            negative_prompt: Negative prompt for inpainting
             max_retries: Maximum retries for text removal
+            enable_upscale: Whether to enable upscaling (default: True)
+            upscale_factor: Upscaling factor (default: 4)
             
         Returns:
             Tuple of (success: bool, message: str)
@@ -102,7 +110,7 @@ class Detextifier:
 
             # 图片中文本全部移除后，添加商品信息到图片
             if self.product_info_result and product_info_prompt:
-                print("\tAdding product info to image using LongCat model...")
+                print(f"\tAdding product info to image using LongCat model: {product_info_prompt}")
                 try:
                     self.inpainter.inpaint(to_inpaint_path, None, product_info_prompt, out_image_path, product_info_negative_prompt)
                     print("\tProduct info added to image.")
@@ -110,6 +118,37 @@ class Detextifier:
                     print(f"\tFailed to add product info: {e}")
                     return False, f"Failed to add product info: {e}"
             
+            # 释放LongCat-Image-Edit-Turbo模型占用的显存
+            if hasattr(self.inpainter, 'release_memory'):
+                self.inpainter.release_memory()
+            
+            # 超分辨率放大（Upscaling）
+            if enable_upscale and self.upscaler:
+                print(f"\tUpscaling image by {upscale_factor}x...")
+                try:
+                    # Create a temporary path for upscaled image
+                    base, ext = os.path.splitext(out_image_path)
+                    upscaled_path = f"{base}_upscaled{ext}"
+                    
+                    self.upscaler.upscale(
+                        in_image_path=out_image_path,
+                        out_image_path=upscaled_path,
+                        scale_factor=upscale_factor,
+                        prompt=Upscaler.DEFAULT_UPSCALE_PROMPT,
+                        negative_prompt=Upscaler.DEFAULT_UPSCALE_NEGATIVE_PROMPT
+                    )
+                    
+                    # Replace original output with upscaled version
+                    if os.path.exists(upscaled_path):
+                        import shutil
+                        shutil.move(upscaled_path, out_image_path)
+                        print(f"\tImage upscaled successfully to {out_image_path}")
+                except Exception as e:
+                    print(f"\tUpscaling failed: {e}")
+                    # Don't return error, just log it - the main task is done
+            elif enable_upscale and not self.upscaler:
+                print("\tUpscaling requested but no upscaler provided. Skipping upscaling.")
+        
             return True, "Success"
             
         except Exception as e:

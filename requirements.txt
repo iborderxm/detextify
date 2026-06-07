@@ -15,3 +15,7 @@ diffusers==0.30.0
 transformers==4.57.1
 paddlepaddle==3.0.0
 paddleocr==2.7.0.3
+# Optional: for Real-ESRGAN upscaling
+# basicsr
+# realesrgan
+# opencv-python
