@@ -3,6 +3,7 @@ from detextify.inpainter import LocalSDInpainter
 from detextify.detextifier import Detextifier
 from detextify.product_info_extractor import ProductInfoExtractor
 import os
+import datetime
 
 print("Using PaddleOCR for text detection")
 
@@ -23,5 +24,6 @@ else:
     inpainter = LocalSDInpainter(model_path=model_path)
 
 detextifier = Detextifier(text_detector, inpainter, product_extractor)
-# detextifier.detextify("./data/1.jpg", "./data/2.jpg")
-detextifier.detextify("./data/1.jpg", "./data/2.jpg", prompt="Remove marketing slogans unrelated to the main product and replace the Chinese translations with English")
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+detextifier.detextify("./data/1.jpg", f"./data/{timestamp}.jpg")
+# detextifier.detextify("./data/1.jpg", "./data/{timestamp}.jpg", prompt="Remove marketing slogans unrelated to the main product and replace the Chinese translations with English")
