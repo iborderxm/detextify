@@ -8,7 +8,6 @@ import tempfile
 import torch
 
 from PIL import Image, ImageDraw
-from diffusers import StableDiffusionInpaintPipeline
 from typing import Sequence
 
 import detextify.utils as utils
@@ -18,6 +17,7 @@ from detextify.text_detector import TextBox
 class Inpainter:
   """Interface for in-painting models."""
   DEFAULT_PROMPT = "remove the text and keep the background natural"
+  DEFAULT_PROMPT_OTHER = "Add the product information {} to the blank area below the image"
 
   def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str):
     pass
