@@ -58,6 +58,10 @@ class Detextifier:
                 try:
                     product_info_result = self.product_info_extractor.extract_product_info(formatted_result)
                     print(f"\tProduct info extracted: {product_info_result}")
+                    # Release Qwen model after extraction to free up CUDA memory for inpainting
+                    print(f"\tReleasing Qwen model to free CUDA memory...")
+                    self.product_info_extractor.release()
+                    self.product_info_extractor = None
                 except Exception as e:
                     print(f"\tFailed to extract product info: {e}")
                     product_info_result = None

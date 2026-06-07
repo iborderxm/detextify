@@ -1,4 +1,5 @@
 from modelscope import AutoModelForCausalLM, AutoTokenizer
+import torch
 
 
 class ProductInfoExtractor:
@@ -12,6 +13,23 @@ class ProductInfoExtractor:
             local_files_only=True
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+        self._released = False
+
+    def release(self):
+        """Release the model and free up CUDA memory."""
+        if not self._released:
+            if hasattr(self, 'model') and self.model is not None:
+                # Move model to CPU first to ensure proper cleanup
+                self.model = self.model.to('cpu')
+                del self.model
+                self.model = None
+            if hasattr(self, 'tokenizer') and self.tokenizer is not None:
+                del self.tokenizer
+                self.tokenizer = None
+            # Clear CUDA cache
+            torch.cuda.empty_cache()
+            self._released = True
+            print("Qwen model released and CUDA memory freed.")
 
     def extract_product_info(self, ocr_text: str) -> str:
         """Extract product information from OCR text.
