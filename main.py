@@ -16,4 +16,5 @@ else:
     inpainter = LocalSDInpainter(model_path=model_path)
 
 detextifier = Detextifier(text_detector, inpainter)
-detextifier.detextify("./data/1.jpg", "./data/2.jpg")
+# detextifier.detextify("./data/1.jpg", "./data/2.jpg")
+detextifier.detextify("./data/1.jpg", "./data/2.jpg", prompt="Remove marketing slogans unrelated to the main product and replace the Chinese translations with English")
