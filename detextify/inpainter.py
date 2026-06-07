@@ -17,7 +17,7 @@ from detextify.text_detector import TextBox
 class Inpainter:
   """Interface for in-painting models."""
   DEFAULT_PROMPT = "Remove all text in the masked area, fill it with clean white background that seamlessly blends with the surrounding area. Keep the product unchanged and make it stand out clearly against the white background. Maintain high image quality and natural appearance."
-  DEFAULT_PROMPT_OTHER = "Add the following product information to the image: {}. Place it in a suitable position. Use a professional, clear font with appropriate size and dark color (black or dark gray) that is easy to read against the white background. Ensure the text is accurate, undistorted, well-positioned, doesn't overlap with the product or important elements, and maintains a clean, professional e-commerce style that harmonizes with the overall image."
+  DEFAULT_PROMPT_OTHER = "Add the following product information to the image: \"{}\". Place it in a suitable position. Use a professional, clear font with appropriate size and dark color (black or dark gray) that is easy to read against the white background. Ensure the text is accurate, undistorted, well-positioned, doesn't overlap with the product or important elements, and maintains a clean, professional e-commerce style that harmonizes with the overall image."
   DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, bad anatomy, extra limbs, missing limbs"
   DEFAULT_NEGATIVE_PROMPT_OTHER = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, wrong text, misspelled, garbled text, overlapping text, illegible text"
 
