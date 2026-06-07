@@ -38,7 +38,7 @@ else:
 # 选项 2: Real-ESRGAN Upscaler (更快速，显存占用较少)
 # 使用方法: 需要安装依赖 `pip install tb-nightly==2.14.0a20230808 basicsr==1.4.2 realesrgan==0.3.0==4.10.0.84  -i https://mirrors.aliyun.com/pypi/simple`
 # 并下载模型权重到 weights/ 目录
-
+try:
     print("Initializing Real-ESRGAN Upscaler...")
     upscaler = RealESRGANUpscaler()
     print("Real-ESRGAN Upscaler initialized successfully.")
