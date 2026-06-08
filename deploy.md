@@ -41,12 +41,18 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/
 pip install -U git+https://github.com/huggingface/diffusers
 ```
 
+### 5. 安装Real-ESRGAN Upscaler的相关依赖
+
+```bash
+pip install tb-nightly==2.14.0a20230808 basicsr==1.4.2 realesrgan==0.3.0 opencv-python -i https://mirrors.aliyun.com/pypi/simple
+```
+
 ## 验证安装
 
 运行以下命令验证安装是否成功：
 
 ```bash
-python -c "import diffusers; print(diffusers.__version__)"
+python main.py
 ```
 
 ## 注意事项
