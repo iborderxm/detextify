@@ -47,6 +47,11 @@ pip install -U git+https://github.com/huggingface/diffusers
 pip install tb-nightly==2.14.0a20230808 basicsr==1.4.2 realesrgan==0.3.0 opencv-python -i https://mirrors.aliyun.com/pypi/simple
 ```
 
+#### 执行basicsr_fix.sh脚本修复basicsr的安装问题：
+```bash
+bash basicsr_fix.sh
+```
+
 ## 验证安装
 
 运行以下命令验证安装是否成功：
