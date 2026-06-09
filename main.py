@@ -56,11 +56,18 @@ detextifier = Detextifier(
 
 # 6. Process image
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-output_path = f"./data/{timestamp}.jpg"
+
+input_path = "./data/1.jpg"
+
+# Extract original filename and add timestamp
+import os
+filename = os.path.splitext(os.path.basename(input_path))[0]
+ext = os.path.splitext(input_path)[1]
+output_path = f"./data/{filename}-{timestamp}{ext}"
 
 print(f"Processing image...")
 success, message = detextifier.detextify(
-    in_image_path="./data/1.jpg",
+    in_image_path=input_path,
     out_image_path=output_path,
     enable_upscale=True,  # 启用超分辨率
     upscale_factor=4      # 4倍放大
