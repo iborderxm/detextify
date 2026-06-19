@@ -1,4 +1,5 @@
 import os
+import shutil
 from typing import Optional, Tuple
 
 from detextify.inpainter import Inpainter
@@ -153,3 +154,135 @@ class Detextifier:
             
         except Exception as e:
             return False, f"Unexpected error: {e}"
+
+    def detextifybat(self, in_image_path: str, out_dir_path: str, 
+                prompt: str = Inpainter.DEFAULT_PROMPT, 
+                negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
+                max_retries: int = 5,
+                enable_upscale: bool = True,
+                upscale_factor: int = 4) -> Tuple[bool, str]:
+        if not os.path.exists(in_image_path):
+            return False, f"Input image path not found: {in_image_path}"
+
+        shutil.rmtree(out_dir_path, ignore_errors=True)
+        os.makedirs(out_dir_path, exist_ok=True)
+
+        image_files = os.listdir(in_image_path)
+        image_files = [f for f in image_files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+        if not image_files:
+            return False, f"No image files found in {in_image_path}"
+
+        # 遍历 image_files，每个图片执行OCR和提取商品信息
+        print("\tProcessing images product info...")
+        for image_file in image_files:
+            image_path = os.path.join(in_image_path, image_file)
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt") 
+            
+            text_boxes = self.text_detector.detect_text(image_path)
+            print(f"\tDetected {len(text_boxes)} text boxes in {image_file}.")
+            formatted_result = self._format_ocr_text(text_boxes)
+
+            if self.product_info_extractor:
+                try:
+                    product_info_result = self.product_info_extractor.extract_product_info(formatted_result)
+                    print(f"\tProduct info extracted: {product_info_result}")
+
+                    if product_info_result:
+                        product_info_result = product_info_result.strip()
+                        with open(out_ocr_path, 'w', encoding='utf-8') as f:
+                            f.write(product_info_result)
+                        print(f"\tProduct info saved to {out_ocr_path}")
+                except Exception as e:
+                    print(f"\tFailed to extract product info for {image_file}: {e}")
+
+        if self.product_info_extractor:
+            print("\tReleasing Qwen model to free CUDA memory...")
+            self.product_info_extractor.release()
+            self.product_info_extractor = None
+
+        # 遍历图片移除文本
+        print("\tRemoving text from images...")
+        for image_file in image_files:
+            image_path = os.path.join(in_image_path, image_file)
+            out_image_path = os.path.join(out_dir_path, image_file)
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
+
+            to_inpaint_path = image_path
+            for i in range(max_retries):
+                print(f"\tIteration {i} of {max_retries} for image {image_file}:")
+
+                text_boxes = self.text_detector.detect_text(to_inpaint_path)
+                print(f"\t\tDetected {len(text_boxes)} text boxes.")
+                
+                if not text_boxes:
+                    if i == 0:
+                        shutil.copy(image_path, out_image_path)
+                    print("\t\tNo text boxes detected, stopping iterations.")
+                    break
+
+                print(f"\t\tCalling in-painting model with prompt: {prompt}")
+                try:
+                    self.inpainter.inpaint(to_inpaint_path, text_boxes, prompt, out_image_path, negative_prompt)
+                except Exception as e:
+                    print(f"\t\tInpainting failed: {e}")
+                    if i < max_retries - 1:
+                        print("\t\tRetrying...")
+                        continue
+                    print(f"\t\tInpainting failed after {max_retries} attempts: {e}")
+                    break
+                
+                if not os.path.exists(out_image_path):
+                    print(f"\t\tInpainting did not produce output file: {out_image_path}")
+                    break
+                
+                to_inpaint_path = out_image_path
+
+            if os.path.exists(out_ocr_path):
+                with open(out_ocr_path, 'r', encoding='utf-8') as f:
+                    product_info = f.read().strip()
+                    print(f"\t\tProduct info: {product_info}")
+                    product_info_prompt = Inpainter.DEFAULT_PROMPT_OTHER.format(product_info)
+                    product_info_negative_prompt = Inpainter.DEFAULT_NEGATIVE_PROMPT_OTHER
+                    print(f"\t\tAdding product info to image using LongCat model: {product_info_prompt}")
+                    try:
+                        self.inpainter.inpaint(out_image_path, None, product_info_prompt, out_image_path, product_info_negative_prompt)
+                        print("\t\tProduct info added to image.")
+                    except Exception as e:
+                        print(f"\t\tFailed to add product info: {e}")
+
+        if hasattr(self.inpainter, 'release_memory'):
+            self.inpainter.release_memory()
+
+        # 超分辨率放大（Upscaling）
+        if enable_upscale and self.upscaler:
+            print(f"\tUpscaling images by {upscale_factor}x...")
+            for image_file in image_files:
+                out_image_path = os.path.join(out_dir_path, image_file)
+                if not os.path.exists(out_image_path):
+                    continue
+                    
+                try:
+                    base, ext = os.path.splitext(out_image_path)
+                    upscaled_path = f"{base}_upscaled{ext}"
+                    
+                    self.upscaler.upscale(
+                        in_image_path=out_image_path,
+                        out_image_path=upscaled_path,
+                        scale_factor=upscale_factor,
+                        prompt=Upscaler.DEFAULT_UPSCALE_PROMPT,
+                        negative_prompt=Upscaler.DEFAULT_UPSCALE_NEGATIVE_PROMPT
+                    )
+                    
+                    if os.path.exists(upscaled_path):
+                        shutil.move(upscaled_path, out_image_path)
+                        print(f"\t\tImage upscaled successfully to {out_image_path}")
+                except Exception as e:
+                    print(f"\t\tUpscaling failed for {image_file}: {e}")
+        elif enable_upscale and not self.upscaler:
+            print("\tUpscaling requested but no upscaler provided. Skipping upscaling.")
+
+        return True, "Success"
+
+

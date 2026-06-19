@@ -1,20 +1,21 @@
 from detextify.text_detector import PaddleOCRTextDetector
 from detextify.inpainter import LocalSDInpainter
 from detextify.detextifier import Detextifier
+from detextify.product_info_extractor import ProductInfoExtractor
+from detextify.upscaler import StableDiffusionUpscaler, RealESRGANUpscaler
 import os
-import sys
-
-if len(sys.argv) != 3:
-    print("Usage: python main_bat.py <source_dir> <output_dir>")
-    sys.exit(1)
-
-source_dir = sys.argv[1]
-output_dir = sys.argv[2]
+import datetime
 
 print("Using PaddleOCR for text detection")
 
+# 1. Initialize PaddleOCR text detector
 text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, show_log=False)
 
+# 2. Initialize Qwen model for product info extraction
+qwen_model_path = "/tmp/Qwen2.5-7B-Instruct"
+product_extractor = ProductInfoExtractor(qwen_model_path)
+
+# 3. Initialize LocalSDInpainter
 model_path = "./mod"
 if not os.path.exists(os.path.join(model_path, "model_index.json")):
     print(f"Model files not found at {model_path}, using default model from Hugging Face.")
@@ -23,21 +24,51 @@ else:
     print(f"Using local model at: {model_path}")
     inpainter = LocalSDInpainter(model_path=model_path)
 
-detextifier = Detextifier(text_detector, inpainter)
+# 4. Initialize Upscaler (选择一种超分辨率模型)
+# 选项 1: Stable Diffusion Upscaler (更高质量，但需要更多显存)
+# 使用方法: 首次运行会自动下载模型 (~5GB)
+# try:
+#     print("Initializing Stable Diffusion Upscaler...")
+#     upscaler = StableDiffusionUpscaler()
+#     print("Stable Diffusion Upscaler initialized successfully.")
+# except Exception as e:
+#     print(f"Failed to initialize Stable Diffusion Upscaler: {e}")
+#     upscaler = None
 
-os.makedirs(output_dir, exist_ok=True)
+# 选项 2: Real-ESRGAN Upscaler (更快速，显存占用较少)
+# 使用方法: 需要安装依赖 `pip install tb-nightly==2.14.0a20230808 basicsr==1.4.2 realesrgan==0.3.0==4.10.0.84  -i https://mirrors.aliyun.com/pypi/simple`
+# 并下载模型权重到 weights/ 目录
+try:
+    print("Initializing Real-ESRGAN Upscaler...")
+    upscaler = RealESRGANUpscaler()
+    print("Real-ESRGAN Upscaler initialized successfully.")
+except Exception as e:
+    print(f"Failed to initialize Real-ESRGAN Upscaler: {e}")
+    upscaler = None
 
-image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
-image_files = [f for f in os.listdir(source_dir) if os.path.splitext(f.lower())[1] in image_extensions]
+# 5. Create Detextifier with upscaler
+detextifier = Detextifier(
+    text_detector=text_detector,
+    inpainter=inpainter,
+    product_info_extractor=product_extractor,
+    upscaler=upscaler
+)
 
-print(f"Found {len(image_files)} images in {source_dir}")
+# 6. Process image
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-for filename in image_files:
-    src_path = os.path.join(source_dir, filename)
-    base_name = os.path.splitext(filename)[0]
-    ext = os.path.splitext(filename)[1]
-    dst_path = os.path.join(output_dir, f"{base_name}_detextified{ext}")
-    print(f"Processing: {filename} -> {base_name}_detextified{ext}")
-    detextifier.detextify(src_path, dst_path)
+input_path = "./data/"
+output_path = f"./data/{timestamp}/"
 
-print(f"Batch processing complete. Output saved to {output_dir}")
+print(f"Processing image...")
+success, message = detextifier.detextifybat(
+    in_image_path=input_path,
+    out_image_path=output_path,
+    enable_upscale=True,  # 启用超分辨率
+    upscale_factor=4      # 4倍放大
+)
+
+if success:
+    print(f"Image processed successfully: {output_path}")
+else:
+    print(f"Image processing failed: {message}")
