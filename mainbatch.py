@@ -58,12 +58,12 @@ detextifier = Detextifier(
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 input_path = "./data/"
-output_path = f"./data/{timestamp}/"
+output_path = f"{input_path}/{timestamp}/"
 
 print(f"Processing image...")
 success, message = detextifier.detextifybat(
     in_image_path=input_path,
-    out_image_path=output_path,
+    out_dir_path=output_path,
     enable_upscale=True,  # 启用超分辨率
     upscale_factor=4      # 4倍放大
 )
