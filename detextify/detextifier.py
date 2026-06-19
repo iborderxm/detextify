@@ -173,7 +173,7 @@ class Detextifier:
             return False, f"No image files found in {in_image_path}"
 
         # 遍历 image_files，每个图片执行OCR和提取商品信息
-        print("\tProcessing images product info...")
+        print("\t------------------Processing images product info------------------")
         for image_file in image_files:
             image_path = os.path.join(in_image_path, image_file)
             base_name = os.path.splitext(image_file)[0]
@@ -181,15 +181,21 @@ class Detextifier:
             
             text_boxes = self.text_detector.detect_text(image_path)
             print(f"\tDetected {len(text_boxes)} text boxes in {image_file}.")
+            if not text_boxes:
+                continue
+            if len(text_boxes) == 0:
+                continue
             formatted_result = self._format_ocr_text(text_boxes)
 
-            if self.product_info_extractor:
+            if self.product_info_extractor and formatted_result.strip():
                 try:
                     product_info_result = self.product_info_extractor.extract_product_info(formatted_result)
                     print(f"\tProduct info extracted: {product_info_result}")
 
                     if product_info_result:
                         product_info_result = product_info_result.strip()
+                        if product_info_result == "none":
+                            continue
                         with open(out_ocr_path, 'w', encoding='utf-8') as f:
                             f.write(product_info_result)
                         print(f"\tProduct info saved to {out_ocr_path}")
@@ -202,7 +208,7 @@ class Detextifier:
             self.product_info_extractor = None
 
         # 遍历图片移除文本
-        print("\tRemoving text from images...")
+        print("\t------------------Removing text from images------------------")
         for image_file in image_files:
             image_path = os.path.join(in_image_path, image_file)
             out_image_path = os.path.join(out_dir_path, image_file)
@@ -210,6 +216,12 @@ class Detextifier:
             out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
 
             to_inpaint_path = image_path
+
+            print(f"\t@@@@@ Current processing image {image_file}...")
+            if not os.path.exists(out_ocr_path):
+                # 复制原始图片
+                shutil.copy(image_path, out_image_path)
+                continue
             for i in range(max_retries):
                 print(f"\tIteration {i} of {max_retries} for image {image_file}:")
 
@@ -257,7 +269,7 @@ class Detextifier:
 
         # 超分辨率放大（Upscaling）
         if enable_upscale and self.upscaler:
-            print(f"\tUpscaling images by {upscale_factor}x...")
+            print(f"\t------------------Upscaling images by {upscale_factor}x------------------")
             for image_file in image_files:
                 out_image_path = os.path.join(out_dir_path, image_file)
                 if not os.path.exists(out_image_path):
