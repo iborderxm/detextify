@@ -119,7 +119,7 @@ class Detextifier:
                     print(f"\tFailed to add product info: {e}")
                     return False, f"Failed to add product info: {e}"
             
-            # 释放LongCat-Image-Edit-Turbo模型占用的显存
+            # 释放FLUX.2-klein-4B模型占用的显存
             if hasattr(self.inpainter, 'release_memory'):
                 self.inpainter.release_memory()
             

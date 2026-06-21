@@ -33,7 +33,7 @@ If we get this right, we will unlock slews of new applications for generative sy
 `Detextify` runs text detection on your image, masks the text boxes, and in-paints the masked regions
 until your image is text-free. `Detextify` can be run entirely on your local machine (using
 [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) for text detection and
-[LongCat-Image-Edit-Turbo](https://huggingface.co/meituan-longcat/LongCat-Image-Edit-Turbo) for in-painting), or can call existing APIs
+[FLUX.2-klein-4B](https://www.modelscope.cn/black-forest-labs/FLUX.2-klein-4B.git) for in-painting), or can call existing APIs
 ([Azure](https://azure.microsoft.com/en-us/products/cognitive-services/computer-vision/) for text detection and
 [OpenAI](https://openai.com/dall-e-2/) or [Replicate](https://replicate.com/) for in-painting).
 
@@ -86,7 +86,7 @@ from detextify.inpainter import LocalSDInpainter
 from detextify.detextifier import Detextifier
 
 text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, show_log=False)
-inpainter = LocalSDInpainter()  # Uses meituan-longcat/LongCat-Image-Edit-Turbo by default
+inpainter = LocalSDInpainter()  # Uses black-forest-labs/FLUX.2-klein-4B by default
 detextifier = Detextifier(text_detector, inpainter)
 detextifier.detextify("./data/1.jpg", "./data/2.jpg")
 ```
@@ -141,7 +141,7 @@ text_detector = AzureTextDetector(AZURE_CV_ENDPOINT, AZURE_CV_KEY)
 ### In-painters
 
 1. `LocalSDInpainter` (implemented via Huggingface's `diffusers` library) runs locally and requires a GPU. Defaults to
-[LongCat-Image-Edit-Turbo](https://huggingface.co/meituan-longcat/LongCat-Image-Edit-Turbo) for fast and high-quality in-painting.
+[FLUX.2-klein-4B](https://www.modelscope.cn/black-forest-labs/FLUX.2-klein-4B.git) for fast and high-quality in-painting.
 ```python
 # Use default model from Hugging Face
 local_inpainter = LocalSDInpainter()

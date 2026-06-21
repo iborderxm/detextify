@@ -16,7 +16,7 @@ from detextify.text_detector import TextBox
 
 class Inpainter:
   """Interface for in-painting models."""
-  DEFAULT_PROMPT = "Remove all text in the masked area, fill it with clean white background that seamlessly blends with the surrounding area. Keep the product unchanged and make it stand out clearly against the white background. Maintain high image quality and natural appearance."
+  DEFAULT_PROMPT = "Remove all text, keep the white background, and enhance the clarity of the main product"
   DEFAULT_PROMPT_OTHER = "Add the following product information to the image: \"{}\". Place it in a suitable position. Use a professional, clear font with appropriate size and dark color (black or dark gray) that is easy to read against the white background. Ensure the text is accurate, undistorted, well-positioned, doesn't overlap with the product or important elements, and maintains a clean, professional e-commerce style that harmonizes with the overall image."
   DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, bad anatomy, extra limbs, missing limbs"
   DEFAULT_NEGATIVE_PROMPT_OTHER = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, wrong text, misspelled, garbled text, overlapping text, illegible text"
@@ -159,7 +159,11 @@ class ReplicateSDInpainter(StableDiffusionInpainter):
 
 
 class LocalSDInpainter(Inpainter):
-  """Uses meituan-longcat/LongCat-Image-Edit-Turbo model for instruction-based image editing."""
+  """Uses black-forest-labs/FLUX.2-klein-4B model for instruction-based image editing.
+  
+  Note: FLUX.2-klein-4B uses instruction-based editing without explicit masks.
+  The model understands edit instructions in the prompt to modify specific regions.
+  """
 
   def __init__(self, model_path: str = None, pipe=None):
     if pipe is not None:
@@ -167,23 +171,24 @@ class LocalSDInpainter(Inpainter):
       return
 
     if model_path is None:
-      model_path = "meituan-longcat/LongCat-Image-Edit-Turbo"
+      model_path = "black-forest-labs/FLUX.2-klein-4B"
 
     if not torch.cuda.is_available():
       raise Exception("You need a GPU + CUDA to run this model locally.")
 
-    from diffusers import LongCatImageEditPipeline
-    self.pipe = LongCatImageEditPipeline.from_pretrained(
+    from diffusers import Flux2KleinPipeline
+    self.pipe = Flux2KleinPipeline.from_pretrained(
         model_path,
         torch_dtype=torch.bfloat16)
     self.pipe.enable_model_cpu_offload()
 
   def call_model(self, prompt: str, image: Image, negative_prompt: str = None) -> Image:
+    """FLUX.2-klein-4B uses instruction-based editing via prompt, not mask-based inpainting."""
     pipe_kwargs = {
         "image": image,
         "prompt": prompt,
-        "guidance_scale": 1,
-        "num_inference_steps": 8
+        "guidance_scale": 1.0,  # Distilled model recommends guidance_scale=1.0
+        "num_inference_steps": 4  # Distilled model optimized for 4 steps
     }
     if negative_prompt:
         pipe_kwargs["negative_prompt"] = negative_prompt
@@ -191,16 +196,21 @@ class LocalSDInpainter(Inpainter):
     return self.pipe(**pipe_kwargs).images[0]
 
   def inpaint(self, in_image_path: str, text_boxes: Sequence[TextBox], prompt: str, out_image_path: str, negative_prompt: str = None):
+    """Inpaint using FLUX.2-klein-4B instruction-based editing.
+    
+    Note: FLUX.2-klein uses prompt-based editing instructions rather than explicit masks.
+    The prompt should describe what to change in the image.
+    """
     image = Image.open(in_image_path)
     out_image = self.call_model(prompt=prompt, image=image, negative_prompt=negative_prompt)
     out_image.save(out_image_path)
 
   def release_memory(self):
-    """释放LongCat-Image-Edit-Turbo模型占用的显存"""
+    """释放FLUX.2-klein-4B模型占用的显存"""
     if hasattr(self, 'pipe') and self.pipe is not None:
       self.pipe = self.pipe.to('cpu')
       del self.pipe
       self.pipe = None
       torch.cuda.empty_cache()
-      print("\tLongCat model memory released.")
+      print("\tFLUX.2-klein-4B model memory released.")
 
