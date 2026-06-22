@@ -179,8 +179,12 @@ class Detextifier:
             base_name = os.path.splitext(image_file)[0]
             out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt") 
             
-            text_boxes = self.text_detector.detect_text(image_path)
-            print(f"\tDetected {len(text_boxes)} text boxes in {image_file}.")
+            text_boxes = []
+            for attempt in range(5):
+                text_boxes = self.text_detector.detect_text(image_path)
+                print(f"\tDetected {len(text_boxes)} text boxes in {image_file} (attempt {attempt + 1}/5).")
+                if text_boxes:
+                    break
             if not text_boxes:
                 continue
             if len(text_boxes) == 0:
