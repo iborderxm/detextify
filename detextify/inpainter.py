@@ -184,14 +184,17 @@ class LocalSDInpainter(Inpainter):
 
   def call_model(self, prompt: str, image: Image, negative_prompt: str = None) -> Image:
     """FLUX.2-klein-4B uses instruction-based editing via prompt, not mask-based inpainting."""
+    full_prompt = prompt
+    if negative_prompt:
+        # full_prompt = f"{prompt}. Do NOT include: {negative_prompt}"
+        full_prompt = f"{prompt}"
+
     pipe_kwargs = {
         "image": image,
-        "prompt": prompt,
-        "guidance_scale": 1.0,  # Distilled model recommends guidance_scale=1.0
-        "num_inference_steps": 4  # Distilled model optimized for 4 steps
+        "prompt": full_prompt,
+        "guidance_scale": 1.0,
+        "num_inference_steps": 4
     }
-    if negative_prompt:
-        pipe_kwargs["negative_prompt"] = negative_prompt
     
     return self.pipe(**pipe_kwargs).images[0]
 
