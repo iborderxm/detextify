@@ -173,7 +173,7 @@ class Detextifier:
             return False, f"No image files found in {in_image_path}"
 
         # 遍历 image_files，每个图片执行OCR和提取商品信息
-        print("\t------------------Processing images product info------------------")
+        print("\t------------------Processing images OCR------------------")
         for image_file in image_files:
             image_path = os.path.join(in_image_path, image_file)
             base_name = os.path.splitext(image_file)[0]
@@ -190,6 +190,29 @@ class Detextifier:
             if len(text_boxes) == 0:
                 continue
             formatted_result = self._format_ocr_text(text_boxes)
+            if formatted_result:
+                formatted_result = formatted_result.strip()
+                with open(out_ocr_path, 'w', encoding='utf-8') as f:
+                    f.write(formatted_result)
+                print(f"\tFormatted text saved to {out_ocr_path}")
+
+        print("\t------------------Processing images product info------------------")
+        for image_file in image_files:
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
+
+            if not os.path.exists(out_ocr_path):
+                continue
+
+            # 读取格式化文本
+            with open(out_ocr_path, 'r', encoding='utf-8') as f:
+                formatted_result = f.read().strip()
+
+            if not formatted_result:
+                print(f"\tNo formatted text found in {out_ocr_path}")
+                # 删除格式化文本文件
+                os.remove(out_ocr_path)
+                continue
 
             if self.product_info_extractor and formatted_result.strip():
                 try:
@@ -222,10 +245,6 @@ class Detextifier:
             to_inpaint_path = image_path
 
             print(f"\t@@@@@ Current processing image {image_file}...")
-            if not os.path.exists(out_ocr_path):
-                # 复制原始图片
-                shutil.copy(image_path, out_image_path)
-                continue
             for i in range(max_retries):
                 print(f"\tIteration {i} of {max_retries} for image {image_file}:")
 
@@ -255,6 +274,10 @@ class Detextifier:
                 
                 to_inpaint_path = out_image_path
 
+            if not os.path.exists(out_ocr_path):
+                # 无需写入商品信息，继续下一个图片
+                print(f"\t\tNo product info found in {out_ocr_path}, skip next image.")
+                continue
             if os.path.exists(out_ocr_path):
                 with open(out_ocr_path, 'r', encoding='utf-8') as f:
                     product_info = f.read().strip()
