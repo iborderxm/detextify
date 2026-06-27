@@ -252,10 +252,9 @@ class Detextifier:
                 print(f"\t\tDetected {len(text_boxes)} text boxes.")
                 
                 if not text_boxes:
-                    if i == 0:
-                        shutil.copy(image_path, out_image_path)
-                    print("\t\tNo text boxes detected, stopping iterations.")
-                    break
+                    if i != 0:
+                        print("\t\tNo text boxes detected, stopping iterations.")
+                        break
 
                 print(f"\t\tCalling in-painting model with prompt: {prompt}")
                 try:
