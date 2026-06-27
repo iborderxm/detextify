@@ -5,7 +5,31 @@ import torch
 class ProductInfoExtractor:
     """Extract product information from OCR text using Qwen model."""
 
-    def __init__(self, model_path: str):
+    # Default prompt template with {ocr_text} placeholder
+    DEFAULT_PROMPT = """请从以下OCR识别结果中提取商品信息，移除营销词（如工厂名、联系方式、广告语等），只保留商品相关描述。所有输出内容必须翻译为英文。
+
+OCR识别结果：
+{ocr_text}
+
+请根据商品类型自动识别并提取相关属性，输出格式如下：
+属性名1: 属性值1
+属性名2: 属性值2
+...
+
+注意：
+1. 请简要回答,只输出包含商品信息的字段，没有的字段不要输出,
+2. 如果提取不到商品信息，请输出“none”,不要输出其他内容
+2. 属性名和属性值都必须使用英文,如果是中文,请翻译为英文
+3. 根据商品类型选择合适的属性名（如 Brand、Model、Year、Size、Color、Material 等）"""
+
+    def __init__(self, model_path: str, custom_prompt: str = None):
+        """Initialize the ProductInfoExtractor.
+
+        Args:
+            model_path: Path to the Qwen model.
+            custom_prompt: Custom prompt template with {ocr_text} placeholder.
+                          If None, the default prompt will be used.
+        """
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype="auto",
@@ -14,6 +38,7 @@ class ProductInfoExtractor:
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
         self._released = False
+        self.custom_prompt = custom_prompt
 
     def release(self):
         """Release the model and free up CUDA memory."""
@@ -31,30 +56,20 @@ class ProductInfoExtractor:
             self._released = True
             print("Qwen model released and CUDA memory freed.")
 
-    def extract_product_info(self, ocr_text: str) -> str:
+    def extract_product_info(self, ocr_text: str, custom_prompt: str = None) -> str:
         """Extract product information from OCR text.
 
         Args:
             ocr_text: OCR recognition result string.
+            custom_prompt: Custom prompt template with {ocr_text} placeholder.
+                          If None, uses the custom_prompt from __init__ or the default.
 
         Returns:
             Extracted product info as formatted string.
         """
-        prompt = f"""请从以下OCR识别结果中提取商品信息，移除营销词（如工厂名、联系方式、广告语等），只保留商品相关描述。所有输出内容必须翻译为英文。
-
-OCR识别结果：
-{ocr_text}
-
-请根据商品类型自动识别并提取相关属性，输出格式如下：
-属性名1: 属性值1
-属性名2: 属性值2
-...
-
-注意：
-1. 请简要回答,只输出包含商品信息的字段，没有的字段不要输出,
-2. 如果提取不到商品信息，请输出“none”,不要输出其他内容
-2. 属性名和属性值都必须使用英文,如果是中文,请翻译为英文
-3. 根据商品类型选择合适的属性名（如 Brand、Model、Year、Size、Color、Material 等）"""
+        # Determine which prompt to use (method-level > class-level > default)
+        prompt_template = custom_prompt or self.custom_prompt or self.DEFAULT_PROMPT
+        prompt = prompt_template.format(ocr_text=ocr_text)
 
         messages = [
             {"role": "system", "content": "你是一个专业的商品信息提取助手，擅长从OCR识别结果中提取关键商品信息并过滤营销内容。"},

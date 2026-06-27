@@ -225,8 +225,11 @@ class Detextifier:
                             # 删除格式化文本文件
                             os.remove(out_ocr_path)
                             continue
+                        # 执行翻译商品信息
+                        product_info_result_en = self.product_info_extractor.translate_product_info(product_info_result, custom_prompt="请将商品信息翻译成英文,保留原始格式")
+                        print(f"\tProduct info extracted in English: {product_info_result_en}")
                         with open(out_ocr_path, 'w', encoding='utf-8') as f:
-                            f.write(product_info_result)
+                            f.write(product_info_result_en)
                         print(f"\tProduct info saved to {out_ocr_path}")
                 except Exception as e:
                     print(f"\tFailed to extract product info for {image_file}: {e}")
@@ -395,8 +398,11 @@ class Detextifier:
                             # 删除格式化文本文件
                             os.remove(out_ocr_path)
                             continue
+# 执行翻译商品信息
+                        product_info_result_en = self.product_info_extractor.translate_product_info(product_info_result, custom_prompt="请将商品信息翻译成英文,保留原始格式")
+                        print(f"\tProduct info extracted in English: {product_info_result_en}")
                         with open(out_ocr_path, 'a', encoding='utf-8') as f:
-                            f.write('\n\n' + product_info_result + '\n')
+                            f.write(product_info_result_en)
                         print(f"\tProduct info saved to {out_ocr_path}")
                 except Exception as e:
                     print(f"\tFailed to extract product info for {image_file}: {e}")
