@@ -226,7 +226,7 @@ class Detextifier:
                             os.remove(out_ocr_path)
                             continue
                         # 执行翻译商品信息
-                        product_info_result_en = self.product_info_extractor.extract_product_info(product_info_result, custom_prompt="请将商品信息翻译成英文,保留原始格式")
+                        product_info_result_en = self.product_info_extractor.extract_product_info(product_info_result, custom_prompt="请将商品信息\"{ocr_text}\"翻译成英文,保留原始格式")
                         print(f"\tProduct info extracted in English: {product_info_result_en}")
                         with open(out_ocr_path, 'w', encoding='utf-8') as f:
                             f.write(product_info_result_en)
@@ -399,7 +399,7 @@ class Detextifier:
                             os.remove(out_ocr_path)
                             continue
                         # 执行提取商品信息      
-                        product_info_result_en = self.product_info_extractor.extract_product_info(product_info_result, custom_prompt="请将商品信息翻译成英文,保留原始格式")
+                        product_info_result_en = self.product_info_extractor.extract_product_info(product_info_result, custom_prompt="请将商品信息\"{ocr_text}\"翻译成英文,保留原始格式")
                         print(f"\tProduct info extracted in English: {product_info_result_en}")
                         with open(out_ocr_path, 'a', encoding='utf-8') as f:
                             f.write(product_info_result_en)
