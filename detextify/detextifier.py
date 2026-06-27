@@ -222,6 +222,8 @@ class Detextifier:
                     if product_info_result:
                         product_info_result = product_info_result.strip()
                         if product_info_result == "none":
+                            # 删除格式化文本文件
+                            os.remove(out_ocr_path)
                             continue
                         with open(out_ocr_path, 'w', encoding='utf-8') as f:
                             f.write(product_info_result)
@@ -390,6 +392,8 @@ class Detextifier:
                     if product_info_result:
                         product_info_result = product_info_result.strip()
                         if product_info_result == "none":
+                            # 删除格式化文本文件
+                            os.remove(out_ocr_path)
                             continue
                         with open(out_ocr_path, 'a', encoding='utf-8') as f:
                             f.write('\n\n' + product_info_result + '\n')
