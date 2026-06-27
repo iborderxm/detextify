@@ -324,4 +324,83 @@ class Detextifier:
 
         return True, "Success"
 
+    def detextifybat1(self, in_image_path: str, out_dir_path: str, 
+                prompt: str = Inpainter.DEFAULT_PROMPT, 
+                negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
+                max_retries: int = 5,
+                enable_upscale: bool = True,
+                upscale_factor: int = 4) -> Tuple[bool, str]:
+        if not os.path.exists(in_image_path):
+            return False, f"Input image path not found: {in_image_path}"
 
+        shutil.rmtree(out_dir_path, ignore_errors=True)
+        os.makedirs(out_dir_path, exist_ok=True)
+
+        image_files = os.listdir(in_image_path)
+        image_files = [f for f in image_files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+        if not image_files:
+            return False, f"No image files found in {in_image_path}"
+
+        # 遍历 image_files，每个图片执行OCR和提取商品信息
+        print("\t------------------Processing images OCR------------------")
+        for image_file in image_files:
+            image_path = os.path.join(in_image_path, image_file)
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt") 
+            
+            text_boxes = []
+            for attempt in range(5):
+                text_boxes = self.text_detector.detect_text(image_path)
+                print(f"\tDetected {len(text_boxes)} text boxes in {image_file} (attempt {attempt + 1}/5).")
+                if text_boxes:
+                    break
+            if not text_boxes:
+                continue
+            if len(text_boxes) == 0:
+                continue
+            formatted_result = self._format_ocr_text(text_boxes)
+            if formatted_result:
+                formatted_result = formatted_result.strip()
+                with open(out_ocr_path, 'w', encoding='utf-8') as f:
+                    f.write(formatted_result)
+                print(f"\tFormatted text saved to {out_ocr_path}")
+
+        print("\t------------------Processing images product info------------------")
+        for image_file in image_files:
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
+
+            if not os.path.exists(out_ocr_path):
+                continue
+
+            # 读取格式化文本
+            with open(out_ocr_path, 'r', encoding='utf-8') as f:
+                formatted_result = f.read().strip()
+
+            if not formatted_result:
+                print(f"\tNo formatted text found in {out_ocr_path}")
+                # 删除格式化文本文件
+                os.remove(out_ocr_path)
+                continue
+
+            if self.product_info_extractor and formatted_result.strip():
+                try:
+                    product_info_result = self.product_info_extractor.extract_product_info(formatted_result)
+                    print(f"\tProduct info extracted: {product_info_result}")
+
+                    if product_info_result:
+                        product_info_result = product_info_result.strip()
+                        if product_info_result == "none":
+                            continue
+                        with open(out_ocr_path, 'a', encoding='utf-8') as f:
+                            f.write('\n\n' + product_info_result + '\n')
+                        print(f"\tProduct info saved to {out_ocr_path}")
+                except Exception as e:
+                    print(f"\tFailed to extract product info for {image_file}: {e}")
+
+        if self.product_info_extractor:
+            print("\tReleasing Qwen model to free CUDA memory...")
+            self.product_info_extractor.release()
+            self.product_info_extractor = None
+
+        return True, "Success"
