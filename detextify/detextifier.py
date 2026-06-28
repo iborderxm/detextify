@@ -107,8 +107,8 @@ def render_product_info(image_path, product_info, output_path, position=(0.05, 0
         font_index = 1 if use_bold and 'msyh.ttc' in font_path.lower() else 0
         font = ImageFont.truetype(font_path, font_size, index=font_index)
     
-    text_color = (255, 255, 255, 77)
-    stroke_color = (0, 0, 0, 77)
+    text_color = (255, 255, 255, 128)
+    stroke_color = (0, 0, 0, 128)
     
     max_width = image.width - rendered_position[0] - int(image.width * 0.05)
     
@@ -279,7 +279,7 @@ class Detextifier:
                 enable_upscale: bool = True,
                 upscale_factor: int = 4,
                 text_position: tuple = (0.05, 0.05),
-                text_scale: float = 1.0,
+                text_scale: float = 1.5,
                 text_use_bold: bool = True) -> Tuple[bool, str]:
         if not os.path.exists(in_image_path):
             return False, f"Input image path not found: {in_image_path}"
