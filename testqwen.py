@@ -1,14 +1,14 @@
-from modelscope import AutoModelForCausalLM, AutoTokenizer
+from modelscope import Qwen3VLForConditionalGeneration, AutoProcessor
 
-model_name = "/tmp/Qwen2.5-7B-Instruct"
+model_name = "/tmp/Qwen3-VL-8B-Instruct"
 
-model = AutoModelForCausalLM.from_pretrained(
+model = Qwen3VLForConditionalGeneration.from_pretrained(
     model_name,
-    torch_dtype="auto",
+    dtype="auto",
     device_map="auto",
     local_files_only=True
 )
-tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+processor = AutoProcessor.from_pretrained(model_name, local_files_only=True)
 
 ocr_text = """Detected 7 text boxes.
    Text Box 1:
@@ -52,12 +52,14 @@ messages = [
     {"role": "system", "content": "你是一个专业的商品信息提取助手，擅长从OCR识别结果中提取关键商品信息并过滤营销内容。"},
     {"role": "user", "content": prompt}
 ]
-text = tokenizer.apply_chat_template(
+model_inputs = processor.apply_chat_template(
     messages,
-    tokenize=False,
-    add_generation_prompt=True
+    tokenize=True,
+    add_generation_prompt=True,
+    return_dict=True,
+    return_tensors="pt"
 )
-model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
+model_inputs = model_inputs.to(model.device)
 
 generated_ids = model.generate(
     **model_inputs,
@@ -67,5 +69,7 @@ generated_ids = [
     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
 ]
 
-response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+response = processor.batch_decode(
+    generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+)[0]
 print(response)
