@@ -83,7 +83,7 @@ class Translator:
             add_generation_prompt=True
         )
 
-        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
+        model_inputs = self.tokenizer([text], return_tensors="pt", return_token_type_ids=False).to(self.model.device)
 
         generated_ids = self.model.generate(
             **model_inputs,
