@@ -7,6 +7,7 @@ from detextify.inpainter import Inpainter
 from detextify.text_detector import TextDetector
 from detextify.product_info_extractor import ProductInfoExtractor
 from detextify.upscaler import Upscaler
+from detextify.translator import Translator
 
 
 def find_microsoft_yahei_font():
@@ -122,11 +123,13 @@ def render_product_info(image_path, product_info, output_path, position=(0.05, 0
 class Detextifier:
     def __init__(self, text_detector: TextDetector, inpainter: Inpainter, 
                  product_info_extractor: Optional[ProductInfoExtractor] = None,
-                 upscaler: Optional[Upscaler] = None):
+                 upscaler: Optional[Upscaler] = None,
+                 translator: Optional[Translator] = None):
         self.text_detector = text_detector
         self.inpainter = inpainter
         self.product_info_extractor = product_info_extractor
         self.upscaler = upscaler
+        self.translator = translator
         # 使用实例变量替代全局变量
         self.ocr_extraction_result: Optional[str] = None
         self.product_info_result: Optional[str] = None
@@ -345,11 +348,9 @@ class Detextifier:
                             # 删除格式化文本文件
                             os.remove(out_ocr_path)
                             continue
-                        # 执行翻译商品信息
-                        product_info_result_en = self.product_info_extractor.extract_product_info(product_info_result, custom_prompt="请将商品信息\"{ocr_text}\"翻译成英文,保留原始格式,简要回答,只需要输出翻译结果,不要输出无关内容")
-                        print(f"\tProduct info extracted in English: {product_info_result_en}")
+
                         with open(out_ocr_path, 'w', encoding='utf-8') as f:
-                            f.write(product_info_result_en)
+                            f.write(product_info_result)
                         print(f"\tProduct info saved to {out_ocr_path}")
                 except Exception as e:
                     print(f"\tFailed to extract product info for {image_file}: {e}")
@@ -358,6 +359,45 @@ class Detextifier:
             print("\tReleasing Qwen model to free CUDA memory...")
             self.product_info_extractor.release()
             self.product_info_extractor = None
+
+        # 执行翻译商品信息
+        print("\t------------------Processing images product info translation------------------")
+        for image_file in image_files:
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
+
+            if not os.path.exists(out_ocr_path):
+                continue
+
+            # 读取格式化文本
+            with open(out_ocr_path, 'r', encoding='utf-8') as f:
+                formatted_result = f.read().strip()
+
+            if not formatted_result:
+                print(f"\tNo formatted text found in {out_ocr_path}")
+                # 删除格式化文本文件
+                os.remove(out_ocr_path)
+                continue
+
+            if self.translator and formatted_result.strip():
+                try:
+                    translated_result = self.translator.translate(formatted_result)
+                    print(f"\tTranslated product info: {translated_result}")
+
+                    if translated_result and translated_result != "none":
+                        with open(out_ocr_path, 'w', encoding='utf-8') as f:
+                            f.write(translated_result)
+                        print(f"\tTranslated product info saved to {out_ocr_path}")
+                    else:
+                        os.remove(out_ocr_path)
+                        print(f"\tNo valid translation result, removed {out_ocr_path}")
+                except Exception as e:
+                    print(f"\tFailed to translate product info for {image_file}: {e}")
+
+        if self.translator:
+            print("\tReleasing Hy-MT2-1.8B model to free CUDA memory...")
+            self.translator.release()
+            self.translator = None
 
         # 遍历图片移除文本
         print("\t------------------Removing text from images------------------")
@@ -527,10 +567,8 @@ class Detextifier:
                             os.remove(out_ocr_path)
                             continue
                         # 执行提取商品信息
-                        product_info_result_en = self.product_info_extractor.extract_product_info(product_info_result, custom_prompt="请将商品信息\"{ocr_text}\"翻译成英文,保留原始格式,简要回答,只需要输出翻译结果,不要输出无关内容")
-                        print(f"\tProduct info extracted in English: {product_info_result_en}")
                         with open(out_ocr_path, 'a', encoding='utf-8') as f:
-                            f.write(product_info_result_en)
+                            f.write(product_info_result)
                         print(f"\tProduct info saved to {out_ocr_path}")
                 except Exception as e:
                     print(f"\tFailed to extract product info for {image_file}: {e}")
@@ -539,5 +577,44 @@ class Detextifier:
             print("\tReleasing Qwen model to free CUDA memory...")
             self.product_info_extractor.release()
             self.product_info_extractor = None
+
+                # 执行翻译商品信息
+        print("\t------------------Processing images product info translation------------------")
+        for image_file in image_files:
+            base_name = os.path.splitext(image_file)[0]
+            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
+
+            if not os.path.exists(out_ocr_path):
+                continue
+
+            # 读取格式化文本
+            with open(out_ocr_path, 'r', encoding='utf-8') as f:
+                formatted_result = f.read().strip()
+
+            if not formatted_result:
+                print(f"\tNo formatted text found in {out_ocr_path}")
+                # 删除格式化文本文件
+                os.remove(out_ocr_path)
+                continue
+
+            if self.translator and formatted_result.strip():
+                try:
+                    translated_result = self.translator.translate(formatted_result)
+                    print(f"\tTranslated product info: {translated_result}")
+
+                    if translated_result and translated_result != "none":
+                        with open(out_ocr_path, 'w', encoding='utf-8') as f:
+                            f.write(translated_result)
+                        print(f"\tTranslated product info saved to {out_ocr_path}")
+                    else:
+                        os.remove(out_ocr_path)
+                        print(f"\tNo valid translation result, removed {out_ocr_path}")
+                except Exception as e:
+                    print(f"\tFailed to translate product info for {image_file}: {e}")
+
+        if self.translator:
+            print("\tReleasing Hy-MT2-1.8B model to free CUDA memory...")
+            self.translator.release()
+            self.translator = None
 
         return True, "Success"

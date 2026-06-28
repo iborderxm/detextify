@@ -2,6 +2,7 @@ from detextify.text_detector import PaddleOCRTextDetector
 from detextify.inpainter import LocalSDInpainter
 from detextify.detextifier import Detextifier
 from detextify.product_info_extractor import ProductInfoExtractor
+from detextify.translator import Translator
 from detextify.upscaler import StableDiffusionUpscaler, RealESRGANUpscaler
 import os
 import datetime
@@ -15,7 +16,16 @@ text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, 
 qwen_model_path = "/tmp/Qwen2.5-7B-Instruct"
 product_extractor = ProductInfoExtractor(qwen_model_path)
 
-# 3. Initialize LocalSDInpainter
+# 3. Initialize Hy-MT2-1.8B translator
+hy_mt2_model_path = "/tmp/Hy-MT2-1.8B"
+try:
+    translator = Translator(hy_mt2_model_path)
+    print("Hy-MT2-1.8B translator initialized successfully.")
+except Exception as e:
+    print(f"Failed to initialize Hy-MT2-1.8B translator: {e}")
+    translator = None
+
+# 4. Initialize LocalSDInpainter
 model_path = "./mod"
 if not os.path.exists(os.path.join(model_path, "model_index.json")):
     print(f"Model files not found at {model_path}, using default model from Hugging Face.")
@@ -24,7 +34,7 @@ else:
     print(f"Using local model at: {model_path}")
     inpainter = LocalSDInpainter(model_path=model_path)
 
-# 4. Initialize Upscaler (选择一种超分辨率模型)
+# 5. Initialize Upscaler (选择一种超分辨率模型)
 # 选项 1: Stable Diffusion Upscaler (更高质量，但需要更多显存)
 # 使用方法: 首次运行会自动下载模型 (~5GB)
 # try:
@@ -46,15 +56,16 @@ except Exception as e:
     print(f"Failed to initialize Real-ESRGAN Upscaler: {e}")
     upscaler = None
 
-# 5. Create Detextifier with upscaler
+# 6. Create Detextifier with upscaler and translator
 detextifier = Detextifier(
     text_detector=text_detector,
     inpainter=inpainter,
     product_info_extractor=product_extractor,
-    upscaler=upscaler
+    upscaler=upscaler,
+    translator=translator
 )
 
-# 6. Process image
+# 7. Process image
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 input_path = "./data/1.jpg"
