@@ -30,14 +30,15 @@ class Translator:
 
     def _load_local_model(self, model_path: str):
         """Load model from local files."""
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             dtype=torch.bfloat16,
             device_map="auto",
-            trust_remote_code=True,
             local_files_only=True
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+        self.model.eval()
+    
 
     def _load_huggingface_model(self, model_path: str):
         """Load model from HuggingFace, falling back to default repo if needed."""
