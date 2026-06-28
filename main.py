@@ -81,7 +81,7 @@ success, message = detextifier.detextify(
     in_image_path=input_path,
     out_image_path=output_path,
     enable_upscale=True,  # 启用超分辨率
-    upscale_factor=4      # 4倍放大
+    upscale_factor=4     # 4倍放大
 )
 
 if success:

@@ -599,7 +599,7 @@ class Detextifier:
                 os.remove(out_ocr_path)
                 continue
 
-            print(f"\t2-Processing {image_file}...")
+            print(f"\t2-Processing {image_file}...\n{self.translator}\n{formatted_result}")
             if self.translator and formatted_result.strip():
                 print(f"\t3-Processing {image_file}...")
                 try:

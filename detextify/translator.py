@@ -1,5 +1,6 @@
-from modelscope import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import os
 
 
 class Translator:
@@ -8,12 +9,25 @@ class Translator:
     DEFAULT_PROMPT = """将以下文本翻译为英语，注意只需要输出翻译后的结果，不要额外解释：
 {source_text}"""
 
+    DEFAULT_HUGGINGFACE_REPO = "tencent/Hy-MT2-1.8B"
+
     def __init__(self, model_path: str):
         """Initialize the Translator.
 
         Args:
-            model_path: Path to the Hy-MT2-1.8B model.
+            model_path: Path to the Hy-MT2-1.8B model, or HuggingFace repo ID.
         """
+        self._released = False
+        
+        config_file = os.path.join(model_path, "config.json")
+        if os.path.exists(config_file):
+            self._load_local_model(model_path)
+        else:
+            print(f"Model files not found at {model_path}. Downloading from HuggingFace...")
+            self._load_huggingface_model(model_path)
+
+    def _load_local_model(self, model_path: str):
+        """Load model from local files."""
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype="auto",
@@ -21,7 +35,17 @@ class Translator:
             local_files_only=True
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
-        self._released = False
+
+    def _load_huggingface_model(self, model_path: str):
+        """Load model from HuggingFace, falling back to default repo if needed."""
+        repo_id = model_path if "/" in model_path else self.DEFAULT_HUGGINGFACE_REPO
+        self.model = AutoModelForCausalLM.from_pretrained(
+            repo_id,
+            torch_dtype="auto",
+            device_map="auto",
+            local_files_only=False
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(repo_id, local_files_only=False)
 
     def release(self):
         """Release the model and free up CUDA memory."""

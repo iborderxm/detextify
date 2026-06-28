@@ -1,11 +1,11 @@
-from modelscope import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import os
 
 
 class ProductInfoExtractor:
     """Extract product information from OCR text using Qwen model."""
 
-    # Default prompt template with {ocr_text} placeholder
     DEFAULT_PROMPT = """请从以下OCR识别结果中提取商品信息，移除营销词（如工厂名、联系方式、广告语等），只保留商品相关描述。所有输出内容必须翻译为英文。
 
 OCR识别结果：
@@ -21,14 +21,28 @@ OCR识别结果：
 2. 如果提取不到商品信息，请输出“none”,不要输出其他内容
 3. 根据商品类型选择合适的属性名（如 Brand、Model、Year、Size、Color、Material 等）"""
 
+    DEFAULT_HUGGINGFACE_REPO = "Qwen/Qwen2.5-7B-Instruct"
+
     def __init__(self, model_path: str, custom_prompt: str = None):
         """Initialize the ProductInfoExtractor.
 
         Args:
-            model_path: Path to the Qwen model.
+            model_path: Path to the Qwen model, or HuggingFace repo ID.
             custom_prompt: Custom prompt template with {ocr_text} placeholder.
                           If None, the default prompt will be used.
         """
+        self._released = False
+        self.custom_prompt = custom_prompt
+        
+        config_file = os.path.join(model_path, "config.json")
+        if os.path.exists(config_file):
+            self._load_local_model(model_path)
+        else:
+            print(f"Model files not found at {model_path}. Downloading from HuggingFace...")
+            self._load_huggingface_model(model_path)
+
+    def _load_local_model(self, model_path: str):
+        """Load model from local files."""
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype="auto",
@@ -36,8 +50,17 @@ OCR识别结果：
             local_files_only=True
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
-        self._released = False
-        self.custom_prompt = custom_prompt
+
+    def _load_huggingface_model(self, model_path: str):
+        """Load model from HuggingFace, falling back to default repo if needed."""
+        repo_id = model_path if "/" in model_path else self.DEFAULT_HUGGINGFACE_REPO
+        self.model = AutoModelForCausalLM.from_pretrained(
+            repo_id,
+            torch_dtype="auto",
+            device_map="auto",
+            local_files_only=False
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(repo_id, local_files_only=False)
 
     def release(self):
         """Release the model and free up CUDA memory."""
