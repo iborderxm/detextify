@@ -21,7 +21,9 @@ class Translator:
         
         config_file = os.path.join(model_path, "config.json")
         if os.path.exists(config_file):
+            print(f"Model files found at {model_path}. Loading from local files...")
             self._load_local_model(model_path)
+            print("Model loaded successfully from local files.")
         else:
             print(f"Model files not found at {model_path}. Downloading from HuggingFace...")
             self._load_huggingface_model(model_path)
@@ -30,8 +32,9 @@ class Translator:
         """Load model from local files."""
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
-            torch_dtype="auto",
+            dtype=torch.bfloat16,
             device_map="auto",
+            trust_remote_code=True,
             local_files_only=True
         )
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
