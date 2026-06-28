@@ -584,7 +584,7 @@ class Detextifier:
             base_name = os.path.splitext(image_file)[0]
             out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
 
-            print(f"\t1-Processing {image_file}...")
+            print(f"\t#########Processing {image_file}...")
 
             if not os.path.exists(out_ocr_path):
                 continue
@@ -599,9 +599,7 @@ class Detextifier:
                 os.remove(out_ocr_path)
                 continue
 
-            print(f"\t2-Processing {image_file}...\n{self.translator}\n{formatted_result}")
             if self.translator and formatted_result.strip():
-                print(f"\t3-Processing {image_file}...")
                 try:
                     translated_result = self.translator.translate(formatted_result)
                     print(f"\tTranslated product info: {translated_result}")
