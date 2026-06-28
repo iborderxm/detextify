@@ -1,11 +1,122 @@
 import os
 import shutil
 from typing import Optional, Tuple
+from PIL import Image, ImageDraw, ImageFont
 
 from detextify.inpainter import Inpainter
 from detextify.text_detector import TextDetector
 from detextify.product_info_extractor import ProductInfoExtractor
 from detextify.upscaler import Upscaler
+
+
+def find_microsoft_yahei_font():
+    """查找微软雅黑字体文件路径"""
+    font_paths = [
+        r"C:\Windows\Fonts\msyh.ttc",      # 常规
+        r"C:\Windows\Fonts\msyhbd.ttc",    # 粗体
+        r"C:\Windows\Fonts\msyhl.ttc",     # 细体
+        "/Library/Fonts/Microsoft YaHei.ttc",  # macOS
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Linux fallback
+    ]
+    for path in font_paths:
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def draw_text_with_stroke(draw, text, position, font, text_color, stroke_color, stroke_width=2):
+    """在指定位置绘制带描边的文字（使用Pillow原生描边功能）"""
+    x, y = position
+    # Pillow 8.0+ 原生支持 stroke_width 和 stroke_fill 参数
+    draw.text(
+        (x, y), text, font=font,
+        fill=text_color,
+        stroke_width=stroke_width,
+        stroke_fill=stroke_color
+    )
+    # 获取文字尺寸
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def draw_multiline_text(draw, text, position, font, text_color, stroke_color, stroke_width, max_width):
+    """绘制多行文字，自动换行"""
+    x, y = position
+    current_x, current_y = x, y
+    
+    # 按行分割
+    lines = text.split('\n')
+    for line in lines:
+        if not line:
+            current_y += font.size + 4
+            continue
+        
+        # 如果单行过长，按空格分割
+        words = line.split(' ')
+        current_line = ''
+        for word in words:
+            test_line = current_line + (word if not current_line else ' ' + word)
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            test_width = bbox[2] - bbox[0]
+            
+            if test_width <= max_width or not current_line:
+                current_line = test_line
+            else:
+                # 绘制当前行
+                tw, th = draw_text_with_stroke(draw, current_line, (current_x, current_y), font, text_color, stroke_color, stroke_width)
+                current_y += th + 8
+                current_line = word
+        
+        # 绘制最后一行
+        if current_line:
+            tw, th = draw_text_with_stroke(draw, current_line, (current_x, current_y), font, text_color, stroke_color, stroke_width)
+            current_y += th + 8
+    
+    return current_y - y
+
+
+def render_product_info(image_path, product_info, output_path, position=(0.05, 0.05), text_scale=1.0, use_bold=True):
+    """在图像上渲染商品信息文字
+    
+    Args:
+        image_path: 输入图像路径
+        product_info: 商品信息文本
+        output_path: 输出图像路径
+        position: 文字起始位置比例 (x_ratio, y_ratio)，范围 0.0-1.0
+        text_scale: 文字缩放因子，默认为 1.0
+        use_bold: 是否使用粗体
+    """
+    image = Image.open(image_path).convert('RGBA')
+    draw = ImageDraw.Draw(image)
+    
+    base_font_size = image.height // 40
+    font_size = max(12, int(base_font_size * text_scale))
+    
+    base_stroke_width = max(1, font_size // 10)
+    stroke_width = int(base_stroke_width * text_scale)
+    
+    x = int(image.width * position[0])
+    y = int(image.height * position[1])
+    rendered_position = (x, y)
+    
+    font_path = find_microsoft_yahei_font()
+    if font_path is None:
+        print("警告：未找到微软雅黑字体，使用默认字体")
+        font = ImageFont.truetype('arial.ttf', font_size) if os.path.exists('arial.ttf') else ImageFont.load_default()
+    else:
+        font_index = 1 if use_bold and 'msyh.ttc' in font_path.lower() else 0
+        font = ImageFont.truetype(font_path, font_size, index=font_index)
+    
+    text_color = (255, 255, 255, 77)
+    stroke_color = (0, 0, 0, 77)
+    
+    max_width = image.width - rendered_position[0] - int(image.width * 0.05)
+    
+    draw_multiline_text(draw, product_info, rendered_position, font, text_color, stroke_color, stroke_width, max_width)
+    
+    image.save(output_path, quality=95)
+    print(f"图像已保存到: {output_path}")
+    return image
 
 
 class Detextifier:
@@ -34,7 +145,10 @@ class Detextifier:
                 negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
                 max_retries: int = 5,
                 enable_upscale: bool = True,
-                upscale_factor: int = 4) -> Tuple[bool, str]:
+                upscale_factor: int = 4,
+                text_position: tuple = (0.05, 0.05),
+                text_scale: float = 1.0,
+                text_use_bold: bool = True) -> Tuple[bool, str]:
         """
         Remove text from image and optionally add product information.
         
@@ -46,6 +160,9 @@ class Detextifier:
             max_retries: Maximum retries for text removal
             enable_upscale: Whether to enable upscaling (default: True)
             upscale_factor: Upscaling factor (default: 4)
+            text_position: Text position as ratio (x_ratio, y_ratio) 0.0-1.0 (default: (0.05, 0.05))
+            text_scale: Text scale factor relative to image height (default: 1.0)
+            text_use_bold: Whether to use bold font (default: True)
             
         Returns:
             Tuple of (success: bool, message: str)
@@ -160,7 +277,10 @@ class Detextifier:
                 negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
                 max_retries: int = 5,
                 enable_upscale: bool = True,
-                upscale_factor: int = 4) -> Tuple[bool, str]:
+                upscale_factor: int = 4,
+                text_position: tuple = (0.05, 0.05),
+                text_scale: float = 1.0,
+                text_use_bold: bool = True) -> Tuple[bool, str]:
         if not os.path.exists(in_image_path):
             return False, f"Input image path not found: {in_image_path}"
 
@@ -286,11 +406,16 @@ class Detextifier:
                 with open(out_ocr_path, 'r', encoding='utf-8') as f:
                     product_info = f.read().strip()
                     print(f"\t\tProduct info: {product_info}")
-                    product_info_prompt = Inpainter.DEFAULT_PROMPT_OTHER.format(product_info)
-                    product_info_negative_prompt = Inpainter.DEFAULT_NEGATIVE_PROMPT_OTHER
-                    print(f"\t\tAdding product info to image using LongCat model: {product_info_prompt}")
+                    print(f"\t\tAdding product info to image using PIL with Microsoft YaHei font")
                     try:
-                        self.inpainter.inpaint(out_image_path, None, product_info_prompt, out_image_path, product_info_negative_prompt)
+                        render_product_info(
+                            image_path=out_image_path,
+                            product_info=product_info,
+                            output_path=out_image_path,
+                            position=text_position,
+                            text_scale=text_scale,
+                            use_bold=text_use_bold
+                        )
                         print("\t\tProduct info added to image.")
                     except Exception as e:
                         print(f"\t\tFailed to add product info: {e}")
@@ -333,7 +458,10 @@ class Detextifier:
                 negative_prompt: str = Inpainter.DEFAULT_NEGATIVE_PROMPT,
                 max_retries: int = 5,
                 enable_upscale: bool = True,
-                upscale_factor: int = 4) -> Tuple[bool, str]:
+                upscale_factor: int = 4,
+                text_position: tuple = (0.05, 0.05),
+                text_scale: float = 1.0,
+                text_use_bold: bool = True) -> Tuple[bool, str]:
         if not os.path.exists(in_image_path):
             return False, f"Input image path not found: {in_image_path}"
 
