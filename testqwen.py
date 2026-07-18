@@ -1,5 +1,7 @@
 from modelscope import Qwen3VLForConditionalGeneration, AutoProcessor
 
+model_name = "/tmp/Qwen3-VL-8B-Instruct"
+
 # default: Load the model on the available device(s)
 model = Qwen3VLForConditionalGeneration.from_pretrained(
     model_name, dtype="auto", device_map="auto", local_files_only=True
