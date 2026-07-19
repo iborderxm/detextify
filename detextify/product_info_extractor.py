@@ -6,7 +6,7 @@ import os
 class ProductInfoExtractor:
     """Extract product information from OCR text using Qwen model."""
 
-    DEFAULT_PROMPT = """请识别提取图像中的文本,另外需要移除营销广告词(工厂或公司名称、电子邮箱、手机号码、电话号码、qq号、微信、抖音、快手、网址等)，只保留商品相关信息(没有商品信息的输出空字符串)."""
+    DEFAULT_PROMPT = """请识别提取图像中的全部文本,识别结果需要移除营销广告词(工厂或公司名称、电子邮箱、手机号码、电话号码、qq号、微信、抖音、快手、网址等)，只保留商品相关信息(没有商品信息的输出none)"""
 
     DEFAULT_HUGGINGFACE_REPO = "Qwen/Qwen3-VL-8B-Instruct"
 

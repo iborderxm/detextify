@@ -184,7 +184,6 @@ class Detextifier:
                     print("\tReleasing Qwen model to free CUDA memory...")
                     self.product_info_extractor.release()
                     self.product_info_extractor = None
-                    # 保存
                 except Exception as e:
                     print(f"\tFailed to extract product info: {e}")
                     self.product_info_result = None
@@ -231,7 +230,7 @@ class Detextifier:
                 to_inpaint_path = out_image_path
 
             # 图片中文本全部移除后，添加商品信息到图片
-            if self.product_info_result and product_info_prompt:
+            if self.product_info_result and self.product_info_result != "none" and product_info_prompt:
                 print(f"\tAdding product info to image using LongCat model: {product_info_prompt}")
                 try:
                     self.inpainter.inpaint(to_inpaint_path, None, product_info_prompt, out_image_path, product_info_negative_prompt)
@@ -315,6 +314,9 @@ class Detextifier:
                     if not self.product_info_result:
                         continue
                     self.product_info_result = self.product_info_result.strip()
+                    if self.product_info_result == "none":
+                        continue
+                    # 保存格式化文本到文件
                     with open(out_ocr_path, 'w', encoding='utf-8') as f:
                         f.write(self.product_info_result)
                     print(f"\tFormatted text saved to {out_ocr_path}")
