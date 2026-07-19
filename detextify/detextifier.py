@@ -313,6 +313,8 @@ class Detextifier:
                     self.product_info_result = self.product_info_result.strip()
                     if self.product_info_result == "none":
                         continue
+                    # 移除字符串none
+                    self.product_info_result = self.product_info_result.replace("none", "")
                     # 保存格式化文本到文件
                     with open(out_ocr_path, 'w', encoding='utf-8') as f:
                         f.write(self.product_info_result)
