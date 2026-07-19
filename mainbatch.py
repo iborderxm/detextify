@@ -13,7 +13,7 @@ print("Using PaddleOCR for text detection")
 text_detector = PaddleOCRTextDetector(lang='ch', use_textline_orientation=True, show_log=False)
 
 # 2. Initialize Qwen model for product info extraction
-qwen_model_path = "/tmp/Qwen2.5-7B-Instruct"
+qwen_model_path = "/tmp/Qwen3-VL-8B-Instruct"
 product_extractor = ProductInfoExtractor(qwen_model_path)
 
 # 3. Initialize Hy-MT2-1.8B translator

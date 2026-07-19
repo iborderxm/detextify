@@ -17,6 +17,8 @@ model = Qwen3VLForConditionalGeneration.from_pretrained(
 
 processor = AutoProcessor.from_pretrained(model_name, local_files_only=True)
 
+# 请识别提取图像中的文本,另外需要移除营销广告词(工厂或公司名称、电子邮箱、手机号码、电话号码、qq号、微信、抖音、快手、网址等)，只保留商品相关信息(没有商品信息的输出空字符串).
+# 请识别提取图像中的文本,提取后参照原图和语义进一步补全优化,需要移除营销广告词(工厂或公司名称、电子邮箱、手机号码、电话号码、qq号、微信、抖音、快手、网址等),只留商品相关信息
 messages = [
     {
         "role": "user",
@@ -25,7 +27,7 @@ messages = [
                 "type": "image",
                 "image": "./data/1.jpg",
             },
-            {"type": "text", "text": "请识别提取图像中的文本."},
+            {"type": "text", "text": "请识别提取图像中的文本,另外需要移除营销广告词(工厂或公司名称、电子邮箱、手机号码、电话号码、qq号、微信、抖音、快手、网址等)，只保留商品相关信息(没有商品信息的输出空字符串)"},
         ],
     }
 ]

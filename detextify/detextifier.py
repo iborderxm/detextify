@@ -174,6 +174,21 @@ class Detextifier:
         product_info_prompt = None
         
         try:
+            # Extract product info using Qwen model (only first iteration)
+            if self.product_info_extractor:
+                print("\tCalling Qwen model to extract product info...")
+                try:
+                    self.product_info_result = self.product_info_extractor.extract_product_info(to_inpaint_path)
+                    print(f"\tProduct info extracted: {self.product_info_result}")
+                    # Release Qwen model after extraction
+                    print("\tReleasing Qwen model to free CUDA memory...")
+                    self.product_info_extractor.release()
+                    self.product_info_extractor = None
+                    # 保存
+                except Exception as e:
+                    print(f"\tFailed to extract product info: {e}")
+                    self.product_info_result = None
+
             for i in range(max_retries):
                 print(f"Iteration {i} of {max_retries} for image {in_image_path}:")
 
@@ -190,20 +205,6 @@ class Detextifier:
                 if not text_boxes:
                     print("\tNo text boxes detected, stopping iterations.")
                     break
-
-                # Extract product info using Qwen model (only first iteration)
-                if i == 0 and self.product_info_extractor:
-                    print("\tCalling Qwen model to extract product info...")
-                    try:
-                        self.product_info_result = self.product_info_extractor.extract_product_info(formatted_result)
-                        print(f"\tProduct info extracted: {self.product_info_result}")
-                        # Release Qwen model after extraction
-                        print("\tReleasing Qwen model to free CUDA memory...")
-                        self.product_info_extractor.release()
-                        self.product_info_extractor = None
-                    except Exception as e:
-                        print(f"\tFailed to extract product info: {e}")
-                        self.product_info_result = None
 
                 # Prepare prompt with product info
                 product_info_prompt = None
@@ -295,65 +296,31 @@ class Detextifier:
         if not image_files:
             return False, f"No image files found in {in_image_path}"
 
-        # 遍历 image_files，每个图片执行OCR和提取商品信息
-        print("\t------------------Processing images OCR------------------")
+        print("\t------------------Extract product info------------------")
         for image_file in image_files:
             image_path = os.path.join(in_image_path, image_file)
             base_name = os.path.splitext(image_file)[0]
             out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt") 
-            
-            text_boxes = []
-            for attempt in range(5):
-                text_boxes = self.text_detector.detect_text(image_path)
-                print(f"\tDetected {len(text_boxes)} text boxes in {image_file} (attempt {attempt + 1}/5).")
-                if text_boxes:
-                    break
-            if not text_boxes:
-                continue
-            if len(text_boxes) == 0:
-                continue
-            formatted_result = self._format_ocr_text(text_boxes)
-            if formatted_result:
-                formatted_result = formatted_result.strip()
-                with open(out_ocr_path, 'w', encoding='utf-8') as f:
-                    f.write(formatted_result)
-                print(f"\tFormatted text saved to {out_ocr_path}")
 
-        print("\t------------------Processing images product info------------------")
-        for image_file in image_files:
-            base_name = os.path.splitext(image_file)[0]
-            out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt")
-
-            if not os.path.exists(out_ocr_path):
-                continue
-
-            # 读取格式化文本
-            with open(out_ocr_path, 'r', encoding='utf-8') as f:
-                formatted_result = f.read().strip()
-
-            if not formatted_result:
-                print(f"\tNo formatted text found in {out_ocr_path}")
-                # 删除格式化文本文件
-                os.remove(out_ocr_path)
-                continue
-
-            if self.product_info_extractor and formatted_result.strip():
+            # Extract product info using Qwen model (only first iteration)
+            if self.product_info_extractor:
                 try:
-                    product_info_result = self.product_info_extractor.extract_product_info(formatted_result)
-                    print(f"\tProduct info extracted: {product_info_result}")
-
-                    if product_info_result:
-                        product_info_result = product_info_result.strip()
-                        if product_info_result == "none":
-                            # 删除格式化文本文件
-                            os.remove(out_ocr_path)
-                            continue
-
-                        with open(out_ocr_path, 'w', encoding='utf-8') as f:
-                            f.write(product_info_result)
-                        print(f"\tProduct info saved to {out_ocr_path}")
+                    self.product_info_result = self.product_info_extractor.extract_product_info(image_path)
+                    print(f"\tProduct info extracted: {self.product_info_result}")
+                    # Release Qwen model after extraction
+                    print("\tReleasing Qwen model to free CUDA memory...")
+                    self.product_info_extractor.release()
+                    self.product_info_extractor = None
+                    
+                    if not self.product_info_result:
+                        continue
+                    self.product_info_result = self.product_info_result.strip()
+                    with open(out_ocr_path, 'w', encoding='utf-8') as f:
+                        f.write(self.product_info_result)
+                    print(f"\tFormatted text saved to {out_ocr_path}")
                 except Exception as e:
-                    print(f"\tFailed to extract product info for {image_file}: {e}")
+                    print(f"\tFailed to extract product info: {e}")
+                    self.product_info_result = None
 
         if self.product_info_extractor:
             print("\tReleasing Qwen model to free CUDA memory...")
