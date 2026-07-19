@@ -297,6 +297,7 @@ class Detextifier:
 
         print("\t------------------Extract product info------------------")
         for image_file in image_files:
+            print(f"\tProcessing image: {image_file}")
             image_path = os.path.join(in_image_path, image_file)
             base_name = os.path.splitext(image_file)[0]
             out_ocr_path = os.path.join(out_dir_path, f"{base_name}.txt") 
@@ -306,10 +307,6 @@ class Detextifier:
                 try:
                     self.product_info_result = self.product_info_extractor.extract_product_info(image_path)
                     print(f"\tProduct info extracted: {self.product_info_result}")
-                    # Release Qwen model after extraction
-                    print("\tReleasing Qwen model to free CUDA memory...")
-                    self.product_info_extractor.release()
-                    self.product_info_extractor = None
                     
                     if not self.product_info_result:
                         continue
