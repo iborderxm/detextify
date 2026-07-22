@@ -40,6 +40,41 @@ def draw_text_with_stroke(draw, text, position, font, text_color, stroke_color, 
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
+def measure_multiline_text_height(draw, text, font, max_width):
+    """测量多行文字的总高度（不实际绘制）"""
+    total_height = 0
+    
+    # 按行分割
+    lines = text.split('\n')
+    for line in lines:
+        if not line:
+            total_height += font.size + 4
+            continue
+        
+        # 如果单行过长，按空格分割
+        words = line.split(' ')
+        current_line = ''
+        for word in words:
+            test_line = current_line + (word if not current_line else ' ' + word)
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            test_width = bbox[2] - bbox[0]
+            
+            if test_width <= max_width or not current_line:
+                current_line = test_line
+            else:
+                # 计算当前行高度
+                bbox = draw.textbbox((0, 0), current_line, font=font)
+                total_height += (bbox[3] - bbox[1]) + 8
+                current_line = word
+        
+        # 计算最后一行高度
+        if current_line:
+            bbox = draw.textbbox((0, 0), current_line, font=font)
+            total_height += (bbox[3] - bbox[1]) + 8
+    
+    return total_height
+
+
 def draw_multiline_text(draw, text, position, font, text_color, stroke_color, stroke_width, max_width):
     """绘制多行文字，自动换行"""
     x, y = position
@@ -76,16 +111,17 @@ def draw_multiline_text(draw, text, position, font, text_color, stroke_color, st
     return current_y - y
 
 
-def render_product_info(image_path, product_info, output_path, position=(0.05, 0.05), text_scale=1.0, use_bold=True):
+def render_product_info(image_path, product_info, output_path, position=(0.05, 0.95), text_scale=1.0, use_bold=True, position_anchor='bottom-left'):
     """在图像上渲染商品信息文字
     
     Args:
         image_path: 输入图像路径
         product_info: 商品信息文本
         output_path: 输出图像路径
-        position: 文字起始位置比例 (x_ratio, y_ratio)，范围 0.0-1.0
+        position: 文字锚点位置比例 (x_ratio, y_ratio)，范围 0.0-1.0
         text_scale: 文字缩放因子，默认为 1.0
         use_bold: 是否使用粗体
+        position_anchor: 锚点类型，支持 'top-left' 和 'bottom-left'
     """
     image = Image.open(image_path).convert('RGBA')
     draw = ImageDraw.Draw(image)
@@ -96,10 +132,6 @@ def render_product_info(image_path, product_info, output_path, position=(0.05, 0
     base_stroke_width = max(1, font_size // 10)
     stroke_width = int(base_stroke_width * text_scale)
     
-    x = int(image.width * position[0])
-    y = int(image.height * position[1])
-    rendered_position = (x, y)
-    
     font_path = find_microsoft_yahei_font()
     if font_path is None:
         print("警告：未找到微软雅黑字体，使用默认字体")
@@ -108,11 +140,25 @@ def render_product_info(image_path, product_info, output_path, position=(0.05, 0
         font_index = 1 if use_bold and 'msyh.ttc' in font_path.lower() else 0
         font = ImageFont.truetype(font_path, font_size, index=font_index)
     
+    x = int(image.width * position[0])
+    max_width = image.width - x - int(image.width * 0.05)
+    
+    # 预计算文字总高度
+    text_height = measure_multiline_text_height(draw, product_info, font, max_width)
+    
+    # 根据锚点类型计算起始 y 坐标
+    if position_anchor == 'bottom-left':
+        # 底部锚点：从底部向上偏移文字高度和边距
+        y = int(image.height * position[1]) - text_height
+    else:
+        # 顶部锚点：直接使用 position[1] 作为起始位置
+        y = int(image.height * position[1])
+    
+    rendered_position = (x, y)
+
     text_color = (0, 0, 0, 200)
     stroke_color = (255, 255, 255, 200)
-    
-    max_width = image.width - rendered_position[0] - int(image.width * 0.05)
-    
+
     draw_multiline_text(draw, product_info, rendered_position, font, text_color, stroke_color, stroke_width, max_width)
     
     image.save(output_path, quality=95)
@@ -281,7 +327,7 @@ class Detextifier:
                 max_retries: int = 5,
                 enable_upscale: bool = True,
                 upscale_factor: int = 4,
-                text_position: tuple = (0.05, 0.05),
+                text_position: tuple = (0.05, 0.95),
                 text_scale: float = 1.5,
                 text_use_bold: bool = True) -> Tuple[bool, str]:
         if not os.path.exists(in_image_path):
@@ -417,13 +463,15 @@ class Detextifier:
                     print(f"\t\tProduct info: {product_info}")
                     print(f"\t\tAdding product info to image using PIL with Microsoft YaHei font")
                     try:
+                        # 渲染商品信息到图像（位置：左下角）
                         render_product_info(
                             image_path=out_image_path,
                             product_info=product_info,
                             output_path=out_image_path,
                             position=text_position,
                             text_scale=text_scale,
-                            use_bold=text_use_bold
+                            use_bold=text_use_bold,
+                            position_anchor='bottom-left'
                         )
                         print("\t\tProduct info added to image.")
                     except Exception as e:
