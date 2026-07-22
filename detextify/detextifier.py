@@ -327,8 +327,8 @@ class Detextifier:
                 max_retries: int = 5,
                 enable_upscale: bool = True,
                 upscale_factor: int = 4,
-                text_position: tuple = (0.05, 0.95),
-                text_scale: float = 1.5,
+                text_position: tuple = (0.02, 0.98),
+                text_scale: float = 1.2,
                 text_use_bold: bool = True) -> Tuple[bool, str]:
         if not os.path.exists(in_image_path):
             return False, f"Input image path not found: {in_image_path}"

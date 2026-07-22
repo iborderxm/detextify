@@ -151,7 +151,7 @@ def render_product_info(image_path, product_info, output_path, position=(0.05, 0
     rendered_position = (x, y)
     
     text_color = (255, 255, 255, 77)
-    stroke_color = (0, 0, 0, 77)
+    stroke_color = (0, 0, 0, 200)
     
     draw_multiline_text(draw, product_info, rendered_position, font, text_color, stroke_color, stroke_width, max_width)
     
@@ -178,8 +178,8 @@ if __name__ == "__main__":
         image_path=test_image_path,
         product_info=product_info,
         output_path=test_output_path,
-        position=(0.05, 0.95),
-        text_scale=1.0,
+        position=(0.02, 0.98),
+        text_scale=1.2,
         use_bold=True,
         position_anchor='bottom-left'
     )
