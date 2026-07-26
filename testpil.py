@@ -179,7 +179,7 @@ if __name__ == "__main__":
         product_info=product_info,
         output_path=test_output_path,
         position=(0.02, 0.98),
-        text_scale=1.2,
+        text_scale=1.5,
         use_bold=True,
         position_anchor='bottom-left'
     )
