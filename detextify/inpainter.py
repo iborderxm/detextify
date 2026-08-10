@@ -16,7 +16,7 @@ from detextify.text_detector import TextBox
 
 class Inpainter:
   """Interface for in-painting models."""
-  DEFAULT_PROMPT = "Remove all text, maintain a natural blurred background"
+  DEFAULT_PROMPT = "Remove all text, maintain a white frosted background, and keep the clarity of the main product"
   DEFAULT_PROMPT_OTHER = "Add the following product information to the image: \"{}\". Place it in a suitable position. Use Microsoft YaHei font, which is a professional, clear sans-serif font. Use appropriate size and dark color (black or dark gray) that is easy to read against the white background. Ensure the text is accurate, undistorted, well-positioned, doesn't overlap with the product or important elements, and maintains a clean, professional e-commerce style that harmonizes with the overall image."
   DEFAULT_NEGATIVE_PROMPT = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, bad anatomy, extra limbs, missing limbs"
   DEFAULT_NEGATIVE_PROMPT_OTHER = "blurry, low quality, distorted, extra elements, watermark, artifacts, noisy, pixelated, disfigured, ugly, deformed, wrong text, misspelled, garbled text, overlapping text, illegible text"
